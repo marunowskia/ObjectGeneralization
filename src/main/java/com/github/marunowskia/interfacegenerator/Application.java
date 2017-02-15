@@ -29,7 +29,8 @@ import com.google.common.graph.MutableValueGraph;
 public class Application {
 
 	public static void main(String args[]) {
-		Path parentPathOfTargets = Paths.get("/Users/marunal/common/uws-in-thingspace/UwsCompatibility/");
+//		Path parentPathOfTargets = Paths.get("/Users/marunal/common/uws-in-thingspace/UwsCompatibility/");
+		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/");
 
 		File parentDirectoryOfTargets = parentPathOfTargets.toFile();
 
@@ -38,6 +39,8 @@ public class Application {
 						parentDirectoryOfTargets, 
 						FileFilterUtils.suffixFileFilter(".java"), 
 						DirectoryFileFilter.DIRECTORY);
+		
+		allJavaFiles.forEach(System.out::println);
 
 		// Construct type dependency graph
 
@@ -94,7 +97,15 @@ public class Application {
 
 									// There is an edge from this class to another class which is named [the method's name]
 									String requestingTypePath =  packagePath + "." + typeName;
+									
 									String returnTypePath = method.getType().toStringWithoutComments();
+									
+									if(classToPackageMap.containsKey(returnTypePath)) {
+										returnTypePath = classToPackageMap.get(returnTypePath);
+									}
+									
+									System.out.println("requesting class: " +requestingTypePath);
+									System.out.println("return type class: " + returnTypePath);
 									nameGraph.putEdgeValue(
 											requestingTypePath, 
 											returnTypePath,
@@ -123,8 +134,7 @@ public class Application {
 			final int b=a;
 			// Convert all the non-frozen leaf classes into frozen classes.
 			leafNodes.forEach(str -> {
-				System.out.println(Strings.repeat("\t",  b) + str);
-//				System.out.println(Strings.repeat("\t",  a) + typeToTypeDeclaration.get(str));
+				System.out.println(Strings.repeat("\t",  b) + b + str);
 				TypeDeclaration decl = typeToTypeDeclaration.get(str);
 				if(decl!=null) {
 					if(decl.getMembers()!=null) {
