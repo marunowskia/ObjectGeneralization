@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
@@ -21,37 +22,38 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.QualifiedNameExpr;
+import com.google.common.base.Strings;
 import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableValueGraph;
 
 public class Application {
 
 	public static void main(String args[]) {
-		Path parentPathOfTargets = Paths.get("/home/alex", "target_project_structure");
-		
+		Path parentPathOfTargets = Paths.get("/Users/marunal/common/uws-in-thingspace/UwsCompatibility/");
+
 		File parentDirectoryOfTargets = parentPathOfTargets.toFile();
-		
+
 		Collection<File> allJavaFiles =  
-			FileUtils.listFiles(
-				parentDirectoryOfTargets, 
-				FileFilterUtils.suffixFileFilter(".java"), 
-				DirectoryFileFilter.DIRECTORY);
-		
+				FileUtils.listFiles(
+						parentDirectoryOfTargets, 
+						FileFilterUtils.suffixFileFilter(".java"), 
+						DirectoryFileFilter.DIRECTORY);
+
 		// Construct type dependency graph
-		
+
 
 		MutableValueGraph<String, String> nameGraph = com.google.common.graph.ValueGraphBuilder.directed().build();
 		Hashtable<String, TypeDeclaration> typeToTypeDeclaration = new Hashtable<>();
-		
+
 		allJavaFiles.forEach(file -> {
 			try {
-				
-				
+
+
 				CompilationUnit fileContents = JavaParser.parse(file);
-				
+
 				Hashtable<String, String> classToPackageMap = new Hashtable<>();
 				Hashtable<String, CompilationUnit> classToCompilationMap = new Hashtable<>();
-				
+
 				if(fileContents.getImports()!=null) {
 					fileContents.getImports().forEach(importDecl -> {
 						String className 	= importDecl.getName().getName();
@@ -64,69 +66,81 @@ public class Application {
 						classToPackageMap.put(className, packageName  + className);
 					});
 				}
-				
-				fileContents.getTypes().forEach(type -> {
-					
-					
-					// Currently, we assume there are no nested types
 
-					String packagePath = 
-							ofNullable(fileContents)
+				if(Objects.nonNull(fileContents.getTypes())) {
+					fileContents.getTypes().forEach(type -> {
+
+
+						// Currently, we assume there are no nested types
+
+						String packagePath = 
+								ofNullable(fileContents)
 								.map(CompilationUnit::getPackage)
 								.map(PackageDeclaration::getName)
 								.map(Object::toString)
 								.orElse("");
-					
-					String typeName = type.getName();
-					classToCompilationMap.put(packagePath + "." + typeName, fileContents);
-					typeToTypeDeclaration.put(packagePath + "." + typeName, type);
-					 
-					 type.getMembers().forEach(member -> {
-						 if(member instanceof MethodDeclaration) {
-							 MethodDeclaration method = ((MethodDeclaration) member);
 
-							 // Only care about getters right now
-							 if(	method.getName().startsWith("get") 
-									&& ( method.getParameters() == null || method.getParameters().isEmpty())) {
+						String typeName = type.getName();
+						classToCompilationMap.put(packagePath + "." + typeName, fileContents);
+						typeToTypeDeclaration.put(packagePath + "." + typeName, type);
 
-								 // There is an edge from this class to another class which is named [the method's name] 
-								 nameGraph.putEdgeValue(
-										 packagePath + "." + typeName, 
-										 classToPackageMap.get(method.getType().toStringWithoutComments()), 
-										 method.getName());
-								 method.getParentNode().getParentNode();
-							 }
-						 }
-					 });;
-				});
+						type.getMembers().forEach(member -> {
+							if(member instanceof MethodDeclaration) {
+								MethodDeclaration method = ((MethodDeclaration) member);
+
+								// Only care about getters right now
+								if(	method.getName().startsWith("get") 
+										&& ( method.getParameters() == null || method.getParameters().isEmpty())) {
+
+									// There is an edge from this class to another class which is named [the method's name]
+									String requestingTypePath =  packagePath + "." + typeName;
+									String returnTypePath = method.getType().toStringWithoutComments();
+									nameGraph.putEdgeValue(
+											requestingTypePath, 
+											returnTypePath,
+											method.getName());
+									method.getParentNode().getParentNode();
+								}
+							}
+						});;
+					});
+				}
 			} catch (ParseException | IOException e) {
 				e.printStackTrace();
 			}
 		});
-		
+
 		// Verify that the graph is a dag
 		if(Graphs.hasCycle(nameGraph)) {
 			throw new IllegalArgumentException("The target directy contains a cyclic type-reference. Aborting.");
 		}
-		
+
+		int a=0;
 		while(!nameGraph.nodes().isEmpty()) {
+			a++;
 			List<String> leafNodes = getLeafNodes(nameGraph);
-			
+
+			final int b=a;
 			// Convert all the non-frozen leaf classes into frozen classes.
 			leafNodes.forEach(str -> {
-				System.out.println(str);
-				System.out.println(typeToTypeDeclaration.get(str));
+				System.out.println(Strings.repeat("\t",  b) + str);
+//				System.out.println(Strings.repeat("\t",  a) + typeToTypeDeclaration.get(str));
 				TypeDeclaration decl = typeToTypeDeclaration.get(str);
-				decl.getMembers().forEach(member -> {System.out.println("member: " + member);});
-				
-				
+				if(decl!=null) {
+					if(decl.getMembers()!=null) {
+//						decl.getMembers().forEach(member -> {System.out.println("member: " + member);});
+					}
+//					System.out.println(Strings.repeat("\t",  b) + decl.toString());
+				}
+	
+	
 				nameGraph.removeNode(str);
+
 				
-				System.out.println(decl.toString());
 			});
 		}
 	}
-	
+
 	private static List<String> getLeafNodes(MutableValueGraph<String, String> graph) {
 		return graph
 				.nodes()
