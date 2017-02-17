@@ -142,11 +142,7 @@ public class Application {
 					}
 //					System.out.println(Strings.repeat("\t",  b) + decl.toString());
 				}
-	
-	
 				nameGraph.removeNode(str);
-
-				
 			});
 		}
 	}
