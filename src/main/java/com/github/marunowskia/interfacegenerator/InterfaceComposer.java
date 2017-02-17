@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.google.common.io.Files;
 
@@ -25,13 +26,18 @@ public class InterfaceComposer {
 			// 		public <? extends GenericType> ReturnType getSomething();
 			// 		...
 			// }
+			
+			
+			List<String> extendsList = def.mustExtend.stream().map(id->id.name).collect(Collectors.toList());
 
 			builder.append("package ").append(def.pkg).append(";\n\n");
 			def.dependencies.forEach(str -> builder.append("import ").append(str).append(";\n"));
-			builder.append("public interface ").append(def.name).append("{\n");
+			builder.append("public interface ").append(def.name).append(" ").append(String.join(", ", extendsList)).append(" {\n");
 			def.methodSignatures.forEach(str -> builder.append(str).append(";\n"));
 			builder.append('}');
 			
+			
+			// Write the string builder's content to the appropriate output file.
 			try {
 				Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\."));
 				File outputFile = outputPath.toFile();
