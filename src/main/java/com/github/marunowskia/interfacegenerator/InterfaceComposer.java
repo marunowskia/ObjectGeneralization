@@ -116,5 +116,43 @@ public class InterfaceComposer {
 		public List<String> dependencies;
 		public List<InterfaceDefinition> mustExtend;
 		public List<String> methodSignatures;
+		public String getPkg() {
+			return pkg;
+		}
+		public void setPkg(String pkg) {
+			this.pkg = pkg;
+		}
+		public String getName() {
+			return name;
+		}
+		public void setName(String name) {
+			this.name = name;
+		}
+		public List<String> getGenericParameters() {
+			return genericParameters;
+		}
+		public void setGenericParameters(List<String> genericParameters) {
+			this.genericParameters = genericParameters;
+		}
+		public List<String> getDependencies() {
+			return dependencies;
+		}
+		public void setDependencies(List<String> dependencies) {
+			this.dependencies = dependencies;
+		}
+		public List<InterfaceDefinition> getMustExtend() {
+			return mustExtend;
+		}
+		public void setMustExtend(List<InterfaceDefinition> mustExtend) {
+			this.mustExtend = mustExtend;
+		}
+		public List<String> getMethodSignatures() {
+			return methodSignatures;
+		}
+		public void setMethodSignatures(List<String> methodSignatures) {
+			this.methodSignatures = methodSignatures;
+		}
+		
+		
 	}
 }
