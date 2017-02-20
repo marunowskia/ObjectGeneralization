@@ -4,10 +4,16 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
+
+import com.google.common.graph.ImmutableValueGraph;
 import com.google.common.io.Files;
 
 import lombok.Data;
@@ -16,11 +22,47 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class InterfaceComposer {
 
-	public static List<InterfaceDefinition> composeInterfaces() {
-		return null;
+	
+	public static void generateAndExportInterfaces(ImmutableValueGraph<String, List<String>> methodGraph, File outputDirectory) {
+		outputInterfaces(composeInterfaces(methodGraph), outputDirectory );
+	}
+	
+	public static Collection<InterfaceDefinition> composeInterfaces(ImmutableValueGraph<String, List<String>> methodGraph ) {
+//		Hashtable<String, String> assignedInterface = new Hashtable<>(); // Map from a package+class to one of the interfaces we plan to output
+		Hashtable<String, InterfaceDefinition> assignedInterfaceActual = new Hashtable<>(); // Map from a package+class to one of the interfaces we plan to output
+		
+		methodGraph.nodes().forEach(node -> {
+			Set<String> returnedTypes = methodGraph.successors(node);
+			final InterfaceDefinition assignedInterface = new InterfaceDefinition();
+			assignedInterface.setName(StringUtils.substringAfterLast(node, "."));
+			assignedInterface.setPkg(StringUtils.substringBeforeLast(node, "."));
+//			assignedInterface.setGenericParameters();// Is this actually necessary? Can this just get extracted as part of the type name?
+			/* TODO: 	IMPORTANT: RETURN TYPES OF THE SAME CLASS/INTERFACE,
+						BUT DIFFERENT GENERIC PARAMETERS *MUST* NOT RESULT IN MORE 
+						THAN ONE INTERFACES BEING GENERATED 
+			*/ 
+			returnedTypes.forEach(type -> {
+				List<String> methodNames = methodGraph.edgeValue(node, type);
+				
+				// Generate the return type:
+				String methodSignatures = 
+						m;
+				
+				methodNames.stream().map(name -> {
+					new StringBuilder().append("public ").append(type).append(" ");
+				})
+				assignedInterface.setMethodSignatures(methodNames);
+				
+			});
+		});
+		
+		
+		
+		
+		return assignedInterfaceActual.values();
 	}
 
-	public static void outputInterfaces(List<InterfaceDefinition> requiredInterfaces, File parentDirectory) {
+	public static void outputInterfaces(Collection<InterfaceDefinition> requiredInterfaces, File parentDirectory) {
 		requiredInterfaces.forEach(def -> {
 			StringBuilder builder = new StringBuilder();
 
