@@ -14,6 +14,8 @@ import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 import org.apache.commons.io.filefilter.FileFilterUtils;
+import org.apache.commons.lang3.StringUtils;
+
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseException;
 import com.github.javaparser.ast.CompilationUnit;
@@ -23,14 +25,17 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.QualifiedNameExpr;
 import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableValueGraph;
+import com.google.common.io.Files;
 
 public class Application {
 
 	public static void main(String args[]) {
 //		Path parentPathOfTargets = Paths.get("/Users/marunal/common/uws-in-thingspace/UwsCompatibility/");
-		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/");
+//		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/");
+		Path parentPathOfTargets = Paths.get("/home/alex/workspaces/java/ObjectGeneralization/src/");
 
 		File parentDirectoryOfTargets = parentPathOfTargets.toFile();
 
@@ -45,7 +50,7 @@ public class Application {
 		// Construct type dependency graph
 
 
-		MutableValueGraph<String, String> nameGraph = com.google.common.graph.ValueGraphBuilder.directed().build();
+		MutableValueGraph<String, List<String>> nameGraph = com.google.common.graph.ValueGraphBuilder.directed().build();
 		Hashtable<String, TypeDeclaration> typeToTypeDeclaration = new Hashtable<>();
 
 		allJavaFiles.forEach(file -> {
@@ -70,6 +75,8 @@ public class Application {
 					});
 				}
 
+				
+				Hashtable<String, List<String>> requestReturnTypeMethodNames = new Hashtable<>();
 				if(Objects.nonNull(fileContents.getTypes())) {
 					fileContents.getTypes().forEach(type -> {
 
@@ -86,6 +93,8 @@ public class Application {
 						String typeName = type.getName();
 						classToCompilationMap.put(packagePath + "." + typeName, fileContents);
 						typeToTypeDeclaration.put(packagePath + "." + typeName, type);
+						
+						
 
 						type.getMembers().forEach(member -> {
 							if(member instanceof MethodDeclaration) {
@@ -106,14 +115,21 @@ public class Application {
 									
 									System.out.println("requesting class: " +requestingTypePath);
 									System.out.println("return type class: " + returnTypePath);
-									nameGraph.putEdgeValue(
-											requestingTypePath, 
-											returnTypePath,
-											method.getName());
-									method.getParentNode().getParentNode();
+									String key = requestingTypePath + "|" + returnTypePath;
+									List<String> methodNameList = requestReturnTypeMethodNames.getOrDefault(key, Lists.newArrayList());
+									methodNameList.add("public " + returnTypePath + " " + method.getName() + "()");
+									requestReturnTypeMethodNames.put(key, methodNameList);
 								}
 							}
 						});;
+					});
+					
+					requestReturnTypeMethodNames.keySet().forEach(key-> {
+						List<String> methodNames = requestReturnTypeMethodNames.get(key);
+						nameGraph.putEdgeValue(
+								StringUtils.substringBefore(key, "|"), 
+								StringUtils.substringAfter(key, "|"),
+								methodNames);
 					});
 				}
 			} catch (ParseException | IOException e) {
@@ -126,28 +142,31 @@ public class Application {
 			throw new IllegalArgumentException("The target directy contains a cyclic type-reference. Aborting.");
 		}
 
-		int a=0;
-		while(!nameGraph.nodes().isEmpty()) {
-			a++;
-			List<String> leafNodes = getLeafNodes(nameGraph);
-
-			final int b=a;
-			// Convert all the non-frozen leaf classes into frozen classes.
-			leafNodes.forEach(str -> {
-				System.out.println(Strings.repeat("\t",  b) + b + str);
-				TypeDeclaration decl = typeToTypeDeclaration.get(str);
-				if(decl!=null) {
-					if(decl.getMembers()!=null) {
-//						decl.getMembers().forEach(member -> {System.out.println("member: " + member);});
-					}
-//					System.out.println(Strings.repeat("\t",  b) + decl.toString());
-				}
-				nameGraph.removeNode(str);
-			});
-		}
+		File outputDirectory = Files.createTempDir();
+		System.out.println(outputDirectory.getAbsolutePath());
+		InterfaceComposer.generateAndExportInterfaces(nameGraph, outputDirectory);
+//		int a=0;
+//		while(!nameGraph.nodes().isEmpty()) {
+//			a++;
+//			List<String> leafNodes = getLeafNodes(nameGraph);
+//
+//			final int b=a;
+//			// Convert all the non-frozen leaf classes into frozen classes.
+//			leafNodes.forEach(str -> {
+//				System.out.println(Strings.repeat("\t",  b) + b + str);
+//				TypeDeclaration decl = typeToTypeDeclaration.get(str);
+//				if(decl!=null) {
+//					if(decl.getMembers()!=null) {
+////						decl.getMembers().forEach(member -> {System.out.println("member: " + member);});
+//					}
+////					System.out.println(Strings.repeat("\t",  b) + decl.toString());
+//				}
+//				nameGraph.removeNode(str);
+//			});
+//		}
 	}
 
-	private static List<String> getLeafNodes(MutableValueGraph<String, String> graph) {
+	private static List<String> getLeafNodes(MutableValueGraph<String, List<String>> graph) {
 		return graph
 				.nodes()
 				.stream()

@@ -1,9 +1,10 @@
 package com.github.marunowskia.interfacegenerator;
-
+import static java.util.Optional.*;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.graph.ImmutableValueGraph;
+import com.google.common.graph.ValueGraph;
 import com.google.common.io.Files;
 
 import lombok.Data;
@@ -23,13 +25,15 @@ import lombok.extern.slf4j.Slf4j;
 public class InterfaceComposer {
 
 	
-	public static void generateAndExportInterfaces(ImmutableValueGraph<String, List<String>> methodGraph, File outputDirectory) {
+	public static void generateAndExportInterfaces(ValueGraph<String, List<String>> methodGraph, File outputDirectory) {
 		outputInterfaces(composeInterfaces(methodGraph), outputDirectory );
 	}
 	
-	public static Collection<InterfaceDefinition> composeInterfaces(ImmutableValueGraph<String, List<String>> methodGraph ) {
+	public static Collection<InterfaceDefinition> composeInterfaces(ValueGraph<String, List<String>> methodGraph ) {
 //		Hashtable<String, String> assignedInterface = new Hashtable<>(); // Map from a package+class to one of the interfaces we plan to output
-		Hashtable<String, InterfaceDefinition> assignedInterfaceActual = new Hashtable<>(); // Map from a package+class to one of the interfaces we plan to output
+//		Hashtable<String, InterfaceDefinition> assignedInterfaceActual = new Hashtable<>(); // Map from a package+class to one of the interfaces we plan to output
+		Collection<InterfaceDefinition> requiredInterfaces = new ArrayList<>();
+		
 		
 		methodGraph.nodes().forEach(node -> {
 			Set<String> returnedTypes = methodGraph.successors(node);
@@ -45,21 +49,13 @@ public class InterfaceComposer {
 				List<String> methodNames = methodGraph.edgeValue(node, type);
 				
 				// Generate the return type:
-				String methodSignatures = 
-						m;
-				
-				methodNames.stream().map(name -> {
-					new StringBuilder().append("public ").append(type).append(" ");
-				})
+				methodNames.stream().map(name -> new StringBuilder().append("public ").append(type).append(" ").append(name).append("()").toString());
 				assignedInterface.setMethodSignatures(methodNames);
-				
+				requiredInterfaces.add(assignedInterface);
 			});
 		});
 		
-		
-		
-		
-		return assignedInterfaceActual.values();
+		return requiredInterfaces;//assignedInterfaceActual.values();
 	}
 
 	public static void outputInterfaces(Collection<InterfaceDefinition> requiredInterfaces, File parentDirectory) {
@@ -75,10 +71,12 @@ public class InterfaceComposer {
 			// }
 
 
-			List<String> extendsList = def.mustExtend.stream().map(id->id.name).collect(Collectors.toList());
+			
+			List<String> extendsList = ofNullable(def.mustExtend).orElse(new ArrayList<>())
+													 .stream().map(id->id.name).collect(Collectors.toList());
 
 			builder.append("package ").append(def.pkg).append(";\n\n");
-			def.dependencies.forEach(str -> builder.append("import ").append(str).append(";\n"));
+			ofNullable(def.dependencies).orElse(new ArrayList<>()).forEach(str -> builder.append("import ").append(str).append(";\n"));
 			builder.append("\n\npublic interface ").append(def.name);
 
 			if(0 < Optional.ofNullable(def.genericParameters).map(List::size).orElse(0)) {
@@ -86,9 +84,13 @@ public class InterfaceComposer {
 				builder.append(" <").append(String.join(", ", def.genericParameters)).append("> ");
 			}
 
-			builder.append(" ").append(String.join(", ", extendsList)).append(" {\n");
+			if(0 < Optional.ofNullable(extendsList).map(List::size).orElse(0)) {
+				builder.append(" extends ").append(String.join(", ", extendsList));
+			}
+			builder.append(" {\n");
+			
 			def.methodSignatures.forEach(str -> builder.append("\t").append(str).append(";\n"));
-			builder.append('}');
+			builder.append("}\n\n");
 
 
 			// Write the string builder's content to the appropriate output file.
