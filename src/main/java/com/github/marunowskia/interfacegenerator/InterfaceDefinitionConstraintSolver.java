@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
+import com.google.common.graph.ValueGraph;
 
 public class InterfaceDefinitionConstraintSolver {
 
@@ -42,10 +43,13 @@ public class InterfaceDefinitionConstraintSolver {
 
 			// Generic Return type Something<Generic> become Something<? extends IGeneric>
 			//  
-		}  
+		}
+		
+		return null;
 	}
 	
 	private static String updateSignature(String methodSignature, Hashtable<String, InterfaceDefinition> replacements) {
+		return null;
 		
 	}
 }

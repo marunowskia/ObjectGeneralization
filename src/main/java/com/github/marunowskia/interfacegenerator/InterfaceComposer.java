@@ -1,12 +1,12 @@
 package com.github.marunowskia.interfacegenerator;
-import static java.util.Optional.*;
+import static java.util.Optional.ofNullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.google.common.graph.ImmutableValueGraph;
 import com.google.common.graph.ValueGraph;
 import com.google.common.io.Files;
 
