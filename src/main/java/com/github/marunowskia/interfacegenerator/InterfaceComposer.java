@@ -16,6 +16,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.graph.ValueGraph;
 import com.google.common.io.Files;
+import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
+import com.google.common.graph.ImmutableValueGraph;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -25,37 +27,11 @@ public class InterfaceComposer {
 
 	
 	public static void generateAndExportInterfaces(ValueGraph<String, List<String>> methodGraph, File outputDirectory) {
-		outputInterfaces(composeInterfaces(methodGraph), outputDirectory );
+		Collection<InterfaceDefinition> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
+		outputInterfaces(optimizedInterfaces, outputDirectory);
 	}
 	
-	public static Collection<InterfaceDefinition> composeInterfaces(ValueGraph<String, List<String>> methodGraph ) {
-//		Hashtable<String, String> assignedInterface = new Hashtable<>(); // Map from a package+class to one of the interfaces we plan to output
-//		Hashtable<String, InterfaceDefinition> assignedInterfaceActual = new Hashtable<>(); // Map from a package+class to one of the interfaces we plan to output
-		Collection<InterfaceDefinition> requiredInterfaces = new ArrayList<>();
-		
-		
-		methodGraph.nodes().forEach(node -> {
-			Set<String> returnedTypes = methodGraph.successors(node);
-			final InterfaceDefinition assignedInterface = new InterfaceDefinition();
-			assignedInterface.setName(StringUtils.substringAfterLast(node, "."));
-			assignedInterface.setPkg(StringUtils.substringBeforeLast(node, "."));
-//			assignedInterface.setGenericParameters();// Is this actually necessary? Can this just get extracted as part of the type name?
-			/* TODO: 	IMPORTANT: RETURN TYPES OF THE SAME CLASS/INTERFACE,
-						BUT DIFFERENT GENERIC PARAMETERS *MUST* NOT RESULT IN MORE 
-						THAN ONE INTERFACES BEING GENERATED 
-			*/ 
-			returnedTypes.forEach(type -> {
-				List<String> methodNames = methodGraph.edgeValue(node, type);
-				
-				// Generate the return type:
-				methodNames.stream().map(name -> new StringBuilder().append("public ").append(type).append(" ").append(name).append("()").toString());
-				assignedInterface.setMethodSignatures(methodNames);
-				requiredInterfaces.add(assignedInterface);
-			});
-		});
-		
-		return requiredInterfaces;//assignedInterfaceActual.values();
-	}
+	
 
 	public static void outputInterfaces(Collection<InterfaceDefinition> requiredInterfaces, File parentDirectory) {
 		requiredInterfaces.forEach(def -> {
@@ -102,6 +78,9 @@ public class InterfaceComposer {
 				Files.createParentDirs(outputFile);
 				outputFile.createNewFile();
 				Files.write(builder.toString().getBytes(), outputFile);
+				System.out.println("\n");
+				System.out.println(builder.toString());
+				System.out.println("\n");
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
