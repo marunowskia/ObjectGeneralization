@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -16,6 +17,7 @@ public class InterfaceDefinitionConstraintSolver {
 
 	public static Collection<InterfaceDefinition> satisfyConstraints(ValueGraph<String, List<String>> methodGraph) {
 		// Constraints:
+		// 0) Each class may must implement exactly one of the created interfaces.
 		// 1) All methods callable using a reference to the original object must be callable using a reference to the interface version of that object.
 		// 2) Any type reference which can be replaced with an equivalent reference must be replaced.
 		// 3) No method signature may occur in more than one InterfaceDefintion of the FINAL return value.
@@ -27,7 +29,10 @@ public class InterfaceDefinitionConstraintSolver {
 		Collection<InterfaceDefinition> topLevelInterfaces = buildInterfaceDefinitions(methodGraph);
 		InterfaceDefinition def = new InterfaceDefinition();
 		def.setName("Sample<Type1, Type2 extends Type3>");
+		
+		// Contstraint 0:
 		Hashtable<String, InterfaceDefinition> typeToInterfaceMap = new Hashtable<>();
+		
 		
 		// Step 2: Replace type references with their equivalent interfaces. 
 		List<InterfaceDefinition>  interfaceOnlyTopLevelInterfaces = new ArrayList<>();
@@ -39,11 +44,11 @@ public class InterfaceDefinitionConstraintSolver {
 			// ExternScopeType<ExternScopeGeneric> ==>  ExternScopeType<ExternScopeGeneric>
 			
 			topLevelInterface.setMethodSignatures(
-			topLevelInterface.getMethodSignatures()
-					.stream()
-					.map(signature -> updateSignature(signature, typeToInterfaceMap))
-					.collect(Collectors.toList())
-			);
+				topLevelInterface.getMethodSignatures()
+						.stream()
+						.map(signature -> updateSignature(signature, typeToInterfaceMap))
+						.collect(Collectors.toList())
+				);
 
 			// Generic Return type Something<Generic> become Something<? extends IGeneric>
 			//  
@@ -53,9 +58,36 @@ public class InterfaceDefinitionConstraintSolver {
 	}
 	
 	private static String updateSignature(String methodSignature, Hashtable<String, InterfaceDefinition> replacements) {
-		return methodSignature;
+		// Initial implementation only cares about return types.
+		
+		// XXX: Replace fake logic for figuring out the method return type with a tested open source library.
+		
+		String paredSignature = StringUtils.normalizeSpace(methodSignature);
+		
+		//public ReturnType methodName(); ==> ReturnType methodName();
+		if(paredSignature.startsWith("public")) {
+			paredSignature.replaceFirst("public", "");
+		}
+		
+		//ReturnType methodName' '?(.* ==> returnType methodName
+		paredSignature = StringUtils.substringBefore(paredSignature, "(")
+						  .trim(); // Remove possible space after methodName
+		
+		String returnType = StringUtils.substringBefore(paredSignature, " ");
+		
+		// XXX String updatedReturnType = udpateType(returnType, );
+		
+//XXX 		return methodSignature.replaceFirst(returnType, updatedReturnType);
+		throw new IllegalStateException("Unfinished method");
 		
 	}
+	
+	// from https://commons.apache.org/sandbox/commons-classscan/xref/org/apache/commons/classscan/builtin/ClassNameHelper.html
+	private static final String IDENTIFIER_REGEX = "\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*";
+	private static Pattern IDENTIFIER_PACKAGE = Pattern.compile(IDENTIFIER_REGEX);
+
+
+	
 	
 	private static Collection<InterfaceDefinition> buildInterfaceDefinitions(ValueGraph<String, List<String>> methodGraph){
 	Collection<InterfaceDefinition> requiredInterfaces = new ArrayList<>();
