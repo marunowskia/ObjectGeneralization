@@ -73,7 +73,7 @@ public class InterfaceComposerTest {
 				Assert.assertEquals(singleInterface.dependencies.size(), fileContents.getImports().size());
 				int expectedNumberOfMethods = fileContents.getTypes().get(0).getMembers().size();
 				Assert.assertEquals(singleInterface.methodSignatures.size(), expectedNumberOfMethods);
-				
+				// TODO: theses asserts need to perform more detailed checks. right now we're basically just making the right number of components made it in
 				
 				System.out.println("\n\n"+fileContents.toString());
 			} catch (Exception e) {
