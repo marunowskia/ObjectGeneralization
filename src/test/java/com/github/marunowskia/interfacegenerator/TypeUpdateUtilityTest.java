@@ -1,10 +1,10 @@
 package com.github.marunowskia.interfacegenerator;
 
-import java.util.Hashtable;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
 
-import static org.junit.Assert.*;
-import static org.hamcrest.core.Is.*;
-import static org.hamcrest.core.IsEqual.*;
+import java.util.Hashtable;
+import java.util.List;
 
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -13,6 +13,8 @@ import org.junit.rules.ExpectedException;
 
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
 
+import lombok.extern.slf4j.Slf4j;
+@Slf4j
 public class TypeUpdateUtilityTest {
 
 	@Rule
@@ -31,7 +33,7 @@ public class TypeUpdateUtilityTest {
 	public void testUpdateSingleInnerTypeWithMatch() {
 		String input        = "Leaf";
 		String expected     = "? extends ILeaf";
-		String theOutput    = TypeUpdateUtility.updateSingleInnerType(input, replacements);
+		String theOutput    = TypeUpdateUtility.updateGeneric(input, replacements);
 		assertThat(theOutput, is(expected));
 	}
 	
@@ -39,17 +41,17 @@ public class TypeUpdateUtilityTest {
 	public void testUpdateSingleInnerTypeWithNoMatch() {
 		String input     = "Missing";
 		String expected  = "Missing";
-		String theOutput = TypeUpdateUtility.updateSingleInnerType(input, replacements);
+		String theOutput = TypeUpdateUtility.updateType(input, replacements);
 		assertThat(theOutput, is(expected));
 	}
 	
-	@Test(expected=IllegalArgumentException.class)
-	public void testUpdateSingleInnerTypeInvalid() {
-		String input     = "Leaf<Root>";
-		String expected  = "Leaf<Root>";
-		String theOutput = TypeUpdateUtility.updateSingleInnerType(input, replacements);
-		assertThat(theOutput, is(expected));
-	}
+//	@Test(expected=IllegalArgumentException.class)
+//	public void testUpdateSingleInnerTypeInvalid() {
+//		String input     = "Leaf<Root>";
+//		String expected  = "Leaf<Root>";
+//		String theOutput = TypeUpdateUtility.updateType(input, replacements);
+//		assertThat(theOutput, is(expected));
+//	}
 	
 	@Test
 	public void testUpdateSingleInnerTypeWildcardWithMatch() {
@@ -57,19 +59,19 @@ public class TypeUpdateUtilityTest {
 
 		input            = "? extends Leaf";
 		expected         = "? extends ILeaf";
-		theOutput        = TypeUpdateUtility.updateSingleInnerType(input, replacements);
+		theOutput        = TypeUpdateUtility.updateGeneric(input, replacements);
 
 		assertThat(theOutput, is(expected));
 
 		input            = "? super Leaf";
 		expected         = "? super Leaf";
-		theOutput        = TypeUpdateUtility.updateSingleInnerType(input, replacements);
+		theOutput        = TypeUpdateUtility.updateGeneric(input, replacements);
 		
 		assertThat(theOutput, is(expected));
 
 		input            = "?";
 		expected         = "?";
-		theOutput        = TypeUpdateUtility.updateSingleInnerType(input, replacements);
+		theOutput        = TypeUpdateUtility.updateGeneric(input, replacements);
 		
 		assertThat(theOutput, is(expected));
 	}
@@ -80,13 +82,13 @@ public class TypeUpdateUtilityTest {
 		
 		input            = "? extends Missing";
 		expected         = "? extends Missing";
-		theOutput        = TypeUpdateUtility.updateSingleInnerType(input, replacements);
+		theOutput        = TypeUpdateUtility.updateGeneric(input, replacements);
 		
 		assertThat(theOutput, is(expected));
 		
 		input            = "? super Missing";
 		expected         = "? super Missing";
-		theOutput        = TypeUpdateUtility.updateSingleInnerType(input, replacements);
+		theOutput        = TypeUpdateUtility.updateGeneric(input, replacements);
 		
 		assertThat(theOutput, is(expected));
 	}
@@ -98,25 +100,26 @@ public class TypeUpdateUtilityTest {
 		input            = "Root<Leaf<Node>>";
 		expected         = "IRoot<? extends ILeaf<? extends INode>>";
 		theOutput        = TypeUpdateUtility.updateType(input, replacements);
-		
+		System.out.printf("%s ===> %s\n", input, theOutput);
 		assertThat(theOutput, is(expected));
 		
+
 		input            = "Root<Leaf, Leaf>";
 		expected         = "IRoot<? extends ILeaf, ? extends ILeaf>";
 		theOutput        = TypeUpdateUtility.updateType(input, replacements);
-		
+		System.out.printf("%s ===> %s\n", input, theOutput);
 		assertThat(theOutput, is(expected));
 		
 		input            = "Root<Leaf, Missing<Root>, Missing>";
-		expected         = "IRoot<? extends ILeaf, Missing<? extends IRoot>, Missing";
+		expected         = "IRoot<? extends ILeaf, Missing<? extends IRoot>, Missing>";
 		theOutput        = TypeUpdateUtility.updateType(input, replacements);
-		
+		System.out.printf("%s ===> %s\n", input, theOutput);
 		assertThat(theOutput, is(expected));
 		
 		input            = "Missing<Missing<Leaf, Node>>";
 		expected         = "Missing<Missing<? extends ILeaf, ? extends INode>>";
 		theOutput        = TypeUpdateUtility.updateType(input, replacements);
-		
+		System.out.printf("%s ===> %s\n", input, theOutput);
 		assertThat(theOutput, is(expected));
 	}
 	
