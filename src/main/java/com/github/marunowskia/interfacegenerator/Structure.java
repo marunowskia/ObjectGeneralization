@@ -3,6 +3,7 @@ package com.github.marunowskia.interfacegenerator;
 import static org.apache.commons.collections4.CollectionUtils.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
 import lombok.Getter;
@@ -14,7 +15,9 @@ import org.apache.commons.lang3.StringUtils;
 @Getter @Setter
 public class Structure {
 
-    private List<InterfaceDefinition> structureContents = new ArrayList<>();
+	
+
+	private List<InterfaceDefinition> structureContents = new ArrayList<>();
     private HashMap<InterfaceDefinition, List<String>> implementingTypes = new HashMap<>();
 
     public Structure() {
@@ -25,6 +28,56 @@ public class Structure {
         structureContents = new ArrayList<>(copy.getStructureContents());
         implementingTypes = new HashMap<>(copy.getImplementingTypes());
     }
+    
+    public InterfaceDefinition add(InterfaceDefinition newInterface) {
+		for(InterfaceDefinition oldInterface : structureContents) {
+			List<String> intersectingMethods = getIntersection(newInterface, oldInterface); 
+			
+			if(!CollectionUtils.isEmpty(intersectingMethods)) {
+			
+				if(intersectingMethods.size()==oldInterface.getMethodSignatures().size()) {
+					if(intersectingMethods.size()==newInterface.getMethodSignatures().size()) {
+						// Ensures idempotence? Maybe?
+						return oldInterface;
+					}
+				}
+				
+				InterfaceDefinition sharedMethodInterface = new InterfaceDefinition();
+				sharedMethodInterface.getDependencies().addAll(newInterface.getDependencies());
+				sharedMethodInterface.getDependencies().addAll(oldInterface.getDependencies());
+				sharedMethodInterface.name = newInterface.getName() + oldInterface.getName(); // TODO: Come up with a clever way to auto-name interfaces
+
+				newInterface.getMethodSignatures().removeAll(intersectingMethods);
+				newInterface.getMustExtend().add(sharedMethodInterface);
+				
+				oldInterface.getMethodSignatures().removeAll(intersectingMethods);
+				oldInterface.getMustExtend().add(sharedMethodInterface);
+				
+				structureContents.add(sharedMethodInterface);
+			}
+		}
+		structureContents.add(newInterface);	
+		return newInterface;
+	}
+	
+	private List<String> getAllMethods(InterfaceDefinition from) {
+		// Will break on cyclic dependencies. But so will Java itself...
+		List<String> result = new ArrayList<String>();
+		result.addAll(from.getMethodSignatures());
+		from.getMustExtend().forEach(extended->result.addAll(getAllMethods(extended)));
+		return result;
+	}
+	
+	private List<String> getIntersection(InterfaceDefinition newInterface, InterfaceDefinition oldInterface) {
+		List<String> oldMethods = getAllMethods(oldInterface);
+		List<String> newMethods = getAllMethods(newInterface);
+		return oldMethods.stream().filter(newMethods::contains).collect(Collectors.toList());
+	}
+	
+	class MethodSignature {
+		String fullyQualifiedReturnType;
+		String methodName;
+	}
 
     public void collapse() {
         // An interface may recombine with another interface IFF the resultant structure
@@ -111,5 +164,21 @@ public class Structure {
             }
         }
         return keys;
+    }
+
+    public List<InterfaceDefinition> getStructureContents() {
+    	return structureContents;
+    }
+    
+    public void setStructureContents(List<InterfaceDefinition> structureContents) {
+    	this.structureContents = structureContents;
+    }
+    
+    public HashMap<InterfaceDefinition, List<String>> getImplementingTypes() {
+    	return implementingTypes;
+    }
+    
+    public void setImplementingTypes(HashMap<InterfaceDefinition, List<String>> implementingTypes) {
+    	this.implementingTypes = implementingTypes;
     }
 }

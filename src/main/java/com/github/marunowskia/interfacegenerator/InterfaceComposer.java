@@ -92,10 +92,10 @@ public class InterfaceComposer {
 
 		public String pkg;
 		public String name;
-		public List<String> genericParameters;
-		public List<String> dependencies;
-		public List<InterfaceDefinition> mustExtend;
-		public List<String> methodSignatures;
+		public List<String> genericParameters = new ArrayList<>();
+		public List<String> dependencies = new ArrayList<>();
+		public List<InterfaceDefinition> mustExtend = new ArrayList<>();
+		public List<String> methodSignatures = new ArrayList<>();
 		public String getPkg() {
 			return pkg;
 		}
