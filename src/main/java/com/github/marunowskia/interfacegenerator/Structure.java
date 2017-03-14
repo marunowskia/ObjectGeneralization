@@ -5,17 +5,25 @@ import static org.apache.commons.collections4.CollectionUtils.*;
 import java.util.*;
 
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.Setter;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
+@Getter @Setter
 public class Structure {
 
     private List<InterfaceDefinition> structureContents = new ArrayList<>();
-    HashMap<InterfaceDefinition, List<String>> implementingTypes = new HashMap<>();
+    private HashMap<InterfaceDefinition, List<String>> implementingTypes = new HashMap<>();
 
     public Structure() {
 
+    }
+
+    public Structure(Structure copy) {
+        structureContents = new ArrayList<>(copy.getStructureContents());
+        implementingTypes = new HashMap<>(copy.getImplementingTypes());
     }
 
     public void collapse() {
