@@ -34,7 +34,7 @@ public class Application {
 
 	public static void main(String args[]) {
 //		Path parentPathOfTargets = Paths.get("/Users/marunal/common/uws-in-thingspace/UwsCompatibility/");
-		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/");
+		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/src/main/java/com/github/marunowskia/interfacegenerator/demo");
 //		Path parentPathOfTargets = Paths.get("/home/alex/workspaces/java/ObjectGeneralization/src/");
 
 		File parentDirectoryOfTargets = parentPathOfTargets.toFile();
