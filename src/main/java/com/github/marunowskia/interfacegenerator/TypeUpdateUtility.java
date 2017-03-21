@@ -21,31 +21,8 @@ public class TypeUpdateUtility {
 		String outerComponent = substringBefore(type, "<");
 		outerComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getName()).orElse(outerComponent);
 		
-//<<<<<<< Updated upstream
 		StringBuilder resultBuilder = new StringBuilder();
 		resultBuilder.append(outerComponent);
-//=======
-//		if(oldType.matches(".*<.*>.*")) {
-//			checkArgument(bracketsAreBalanced(oldType));
-//			
-//			String subType = StringUtils.substringAfter(bracketsRemoved, "<");
-//			String updatedSubTypes = Arrays.stream(subType.split(","))
-//					.map(s->s.trim())
-//					.map(s->updateInnerTypeComponent(s, replacements))
-//					.reduce("", (result, data) -> result + ", " + data);
-//			updatedSubTypes.replaceFirst(",", "");
-//			
-//			return
-//				"<"
-//			+	updateFirstInnerType(StringUtils.substringBefore(bracketsRemoved, "<"), replacements) // UPDATE THE TYPE BEING GENERICIZED
-//			+	(StringUtils.isEmpty(subType) ? "":updateInnerTypeComponent("<"+StringUtils.substringAfter(bracketsRemoved, "<"), replacements)) // UPDATE THE TYPE OF THE GENERIC COMPONENTS
-//			+	">";	
-//		}
-//		else {
-//			 
-//		}
-//>>>>>>> Stashed changes
-		
 		if(type.matches(".+<.*>")) {
 			String innerComponent =  substringBeforeLast(substringAfter(type, "<"), ">");
 			innerComponent = updateGenericList(innerComponent, replacements);
