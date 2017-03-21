@@ -21,7 +21,7 @@ public class Structure {
     private HashMap<InterfaceDefinition, List<String>> implementingTypes = new HashMap<>();
 
     public Structure() {
-
+    	
     }
 
     public Structure(Structure copy) {
@@ -29,23 +29,27 @@ public class Structure {
         implementingTypes = new HashMap<>(copy.getImplementingTypes());
     }
     
-    public InterfaceDefinition add(InterfaceDefinition newInterface) {
+    public InterfaceDefinition add(InterfaceDefinition newInterface, List<String> implementors) {
+    	
+    	if(implementingTypes.containsKey(newInterface)) {
+    		implementingTypes.get(newInterface).addAll(implementors);
+    	}
+    	else {
+    		implementingTypes.put(newInterface, implementors);
+    	}
+    	List<InterfaceDefinition> intersectionResults = new ArrayList<>();
 		for(InterfaceDefinition oldInterface : structureContents) {
 			List<String> intersectingMethods = getIntersection(newInterface, oldInterface); 
 			
 			if(!CollectionUtils.isEmpty(intersectingMethods)) {
 			
-				if(intersectingMethods.size()==oldInterface.getMethodSignatures().size()) {
-					if(intersectingMethods.size()==newInterface.getMethodSignatures().size()) {
-						// Ensures idempotence? Maybe?
-						return oldInterface;
-					}
-				}
 				
 				InterfaceDefinition sharedMethodInterface = new InterfaceDefinition();
 				sharedMethodInterface.getDependencies().addAll(newInterface.getDependencies());
 				sharedMethodInterface.getDependencies().addAll(oldInterface.getDependencies());
 				sharedMethodInterface.name = newInterface.getName() + oldInterface.getName(); // TODO: Come up with a clever way to auto-name interfaces
+				sharedMethodInterface.pkg = oldInterface.getPkg();
+				sharedMethodInterface.setMethodSignatures(intersectingMethods);
 
 				newInterface.getMethodSignatures().removeAll(intersectingMethods);
 				newInterface.getMustExtend().add(sharedMethodInterface);
@@ -53,9 +57,10 @@ public class Structure {
 				oldInterface.getMethodSignatures().removeAll(intersectingMethods);
 				oldInterface.getMustExtend().add(sharedMethodInterface);
 				
-				structureContents.add(sharedMethodInterface);
+				intersectionResults.add(sharedMethodInterface);
 			}
 		}
+		structureContents.addAll(intersectionResults);
 		structureContents.add(newInterface);	
 		return newInterface;
 	}
@@ -94,14 +99,15 @@ public class Structure {
         HashMap<InterfaceDefinition, InterfaceDefinition> replacementPairs = new HashMap<>();
         for(int a=0; a<structureContents.size(); a++) {
             InterfaceDefinition interfaceA = structureContents.get(a);
-            List<String> extendsOrImplementsA = implementingTypes.get(interfaceA);
-            for(int b=a+1; b<structureContents.size(); b++) {
-                InterfaceDefinition interfaceB = structureContents.get(a);
-                List<String> extendsOrImplementsB = implementingTypes.get(interfaceB);;
-
-                if(isEqualCollection(extendsOrImplementsA, extendsOrImplementsB)) {
-                    replacementPairs.put(interfaceA, interfaceB);
-                }
+            List<String> extendsOrImplementsA = implementingTypes.getOrDefault(interfaceA, new ArrayList<String>());
+            if(!isEmpty(extendsOrImplementsA)) {
+	            for(int b=a+1; b<structureContents.size(); b++) {
+	                InterfaceDefinition interfaceB = structureContents.get(b);
+	                List<String> extendsOrImplementsB = implementingTypes.getOrDefault(interfaceB, new ArrayList<String>());
+	                if(isEqualCollection(extendsOrImplementsA, extendsOrImplementsB)) {
+	                    replacementPairs.put(interfaceA, interfaceB);
+	                }
+	            }
             }
         }
         replaceAll(replacementPairs);
@@ -125,7 +131,7 @@ public class Structure {
         updateStructure(replaceThis, with);
     }
 
-    private void updateStructure(InterfaceDefinition replaceThis, InterfaceDefinition with) {
+    public void updateStructure(InterfaceDefinition replaceThis, InterfaceDefinition with) {
         structureContents.stream().map(id->id.getMustExtend())
                 .filter(mustExtend -> mustExtend.contains(replaceThis))
                 .forEach(mustExtend -> {

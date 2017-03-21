@@ -7,17 +7,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.graph.ValueGraph;
 import com.google.common.io.Files;
-import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
-import com.google.common.graph.ImmutableValueGraph;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -27,8 +23,20 @@ public class InterfaceComposer {
 
 	
 	public static void generateAndExportInterfaces(ValueGraph<String, List<String>> methodGraph, File outputDirectory) {
-		Collection<InterfaceDefinition> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
-		outputInterfaces(optimizedInterfaces, outputDirectory);
+		Hashtable<InterfaceDefinition, List<String>> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
+		methodGraph.nodes().forEach(
+				node -> {
+					System.out.println(node);
+					methodGraph.successors(node).forEach(child -> {
+						System.out.println("\t" + child);
+					});
+					
+				});
+		Structure finalStructure = new Structure();
+		optimizedInterfaces.forEach((newInterface, implementors) -> finalStructure.add(newInterface, implementors));
+		finalStructure.collapse();
+		
+		outputInterfaces(finalStructure.getStructureContents(), outputDirectory);
 	}
 	
 	
@@ -132,7 +140,5 @@ public class InterfaceComposer {
 		public void setMethodSignatures(List<String> methodSignatures) {
 			this.methodSignatures = methodSignatures;
 		}
-		
-		
 	}
 }
