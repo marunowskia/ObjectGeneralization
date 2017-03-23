@@ -42,12 +42,21 @@ public class Structure {
 			List<String> intersectingMethods = getIntersection(newInterface, oldInterface); 
 			
 			if(!CollectionUtils.isEmpty(intersectingMethods)) {
-			
-				
 				InterfaceDefinition sharedMethodInterface = new InterfaceDefinition();
 				sharedMethodInterface.getDependencies().addAll(newInterface.getDependencies());
 				sharedMethodInterface.getDependencies().addAll(oldInterface.getDependencies());
-				sharedMethodInterface.name = newInterface.getName() + oldInterface.getName(); // TODO: Come up with a clever way to auto-name interfaces
+				String commonPrefix = StringUtils.getCommonPrefix(newInterface.getName(), oldInterface.getName()); // TODO: Come up with a clever way to auto-name interfaces
+				
+				String remainingNew = StringUtils.substringAfter(newInterface.getName(), commonPrefix);
+				String remainingOld = StringUtils.substringAfter(oldInterface.getName(), commonPrefix);
+				
+				if(remainingNew.compareTo(remainingOld) < 0) {
+					sharedMethodInterface.name = commonPrefix + "_" + remainingNew + "_" + remainingOld;
+				}
+				else {
+					sharedMethodInterface.name = commonPrefix + "_" + remainingOld + "_" + remainingNew;
+				}
+								  
 				sharedMethodInterface.pkg = oldInterface.getPkg();
 				sharedMethodInterface.setMethodSignatures(intersectingMethods);
 
@@ -138,9 +147,14 @@ public class Structure {
                     mustExtend.remove(  replaceThis);
                     mustExtend.add(     with);
                 });
+        structureContents.remove(replaceThis);
     }
 
     private void updateImplementors(InterfaceDefinition replaceThis, InterfaceDefinition with) {
+         HashMap<InterfaceDefinition, List<String>> newImplementingTypes = new HashMap<>();
+         newImplementingTypes.putAll(implementingTypes);
+         
+    	implementingTypes = newImplementingTypes;
         List<String> implementsReplaceThis = implementingTypes.getOrDefault(replaceThis, new ArrayList<>());
         List<String> implementsWith =        implementingTypes.getOrDefault(with, new ArrayList<>());
         implementsWith.addAll(implementsReplaceThis);

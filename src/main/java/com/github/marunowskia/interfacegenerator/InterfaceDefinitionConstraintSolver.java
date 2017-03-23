@@ -1,9 +1,11 @@
 package com.github.marunowskia.interfacegenerator;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -12,14 +14,16 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Multimaps;
 import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableValueGraph;
 import com.google.common.graph.ValueGraph;
-import com.google.common.graph.ValueGraphBuilder;
 
 public class InterfaceDefinitionConstraintSolver {
 
-	public static Hashtable<InterfaceDefinition, List<String>> satisfyConstraints(ValueGraph<String, List<String>> methodGraph) {
+	public static List<InterfaceDefinition> satisfyConstraints(ValueGraph<String, List<String>> methodGraph) {
 		// Constraints:
 		// 0) Each class may must implement exactly one of the created interfaces.
 		// 1) All methods callable using a reference to the original object must be callable using a reference to the interface version of that object.
@@ -33,35 +37,40 @@ public class InterfaceDefinitionConstraintSolver {
 		
 
 		// Contstraint 0:
-		Hashtable<String, InterfaceDefinition> typeToInterfaceMap = new Hashtable<>();
+		Map<String, InterfaceDefinition> typeToInterfaceMap = new Hashtable<>();
 		
 		
+		Structure structure = new Structure();
 		// Step 2: Replace type references with their equivalent interfaces. 
-		List<InterfaceDefinition>  interfaceOnlyTopLevelInterfaces = new ArrayList<>();
 		interfaceTiers.forEach(tier->tier.forEach((name,topLevelInterface) -> {
-			typeToInterfaceMap.put(name, topLevelInterface);
+			// Since this is a leaf interface, we know that the return types cannot refer to any of the other types in this tier, 
+			// so we are guaranteed to have all necessary information to update the return types.
 			topLevelInterface.setMethodSignatures(
 				topLevelInterface.getMethodSignatures()
 						.stream()
 						.map(signature -> updateSignature(signature, typeToInterfaceMap))
 						.collect(Collectors.toList())
 				);
+			topLevelInterface = structure.add(topLevelInterface, Collections.singletonList(name)); // name must be fully qualified!
+			structure.collapse();
+			
+			// TODO: replace this with one-line version
+			typeToInterfaceMap.clear();
+			structure.getImplementingTypes().forEach((k,v)-> {
+				v.forEach(implementingType -> {
+					typeToInterfaceMap.put(implementingType, k);
+				});
+			});
+			
+			typeToInterfaceMap.put(name, topLevelInterface);
 		}));
-		
-		
-		Hashtable<InterfaceDefinition, List<String>> result = new Hashtable<>();
-		typeToInterfaceMap.keySet().stream().forEach(typeName -> {
-			result.put(
-					typeToInterfaceMap.get(typeName),
-					new ArrayList<>(Structure.getKeysByValue(typeToInterfaceMap, typeToInterfaceMap.get(typeName))));
-		});
-		
-		return result;
+		structure.collapse();
+		return structure.getStructureContents();
 				
 	}
 	
 	
-	private static String updateSignature(String methodSignature, Hashtable<String, InterfaceDefinition> replacements) {
+	private static String updateSignature(String methodSignature, Map<String, InterfaceDefinition> replacements) {
 		// Initial implementation only cares about return types.
 		
 		// XXX: Replace fake logic for figuring out the method return type with a tested open source library.

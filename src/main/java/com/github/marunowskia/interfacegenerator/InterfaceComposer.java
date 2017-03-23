@@ -23,25 +23,18 @@ public class InterfaceComposer {
 
 	
 	public static void generateAndExportInterfaces(ValueGraph<String, List<String>> methodGraph, File outputDirectory) {
-		Hashtable<InterfaceDefinition, List<String>> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
-		methodGraph.nodes().forEach(
-				node -> {
-					System.out.println(node);
-					methodGraph.successors(node).forEach(child -> {
-						System.out.println("\t" + child);
-					});
-					
-				});
-		Structure finalStructure = new Structure();
-		optimizedInterfaces.forEach((newInterface, implementors) -> finalStructure.add(newInterface, implementors));
-		finalStructure.collapse();
-		
-		outputInterfaces(finalStructure.getStructureContents(), outputDirectory);
+		List<InterfaceDefinition> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
+		outputInterfaces(optimizedInterfaces, outputDirectory);
 	}
 	
 	
 
 	public static void outputInterfaces(Collection<InterfaceDefinition> requiredInterfaces, File parentDirectory) {
+		
+		requiredInterfaces.forEach(def -> {
+			Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\.")).resolve(def.name);
+			System.out.println(outputPath);
+		});
 		requiredInterfaces.forEach(def -> {
 			StringBuilder builder = new StringBuilder();
 
@@ -58,9 +51,9 @@ public class InterfaceComposer {
 			List<String> extendsList = ofNullable(def.mustExtend).orElse(new ArrayList<>())
 													 .stream().map(id->id.name).collect(Collectors.toList());
 
-			builder.append("package ").append(def.pkg).append(";\n\n");
+//			builder.append("package ").append(def.pkg).append(";\n");
 			ofNullable(def.dependencies).orElse(new ArrayList<>()).forEach(str -> builder.append("import ").append(str).append(";\n"));
-			builder.append("\n\npublic interface ").append(def.name);
+			builder.append("\npublic interface ").append(def.name);
 
 			if(0 < Optional.ofNullable(def.genericParameters).map(List::size).orElse(0)) {
 				System.out.println("have generic parameters");
@@ -73,22 +66,19 @@ public class InterfaceComposer {
 			builder.append(" {\n");
 			
 			def.methodSignatures.forEach(str -> builder.append("\t").append(str).append(";\n"));
-			builder.append("}\n\n");
+			builder.append("}");
 
 
 			// Write the string builder's content to the appropriate output file.
 			try {
 				Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\.")).resolve(def.name);
 				// SLF4J just stopped working?
-				System.out.println(outputPath);
 				File outputFile = outputPath.toFile();
 				outputFile.delete();
 				Files.createParentDirs(outputFile);
 				outputFile.createNewFile();
-				Files.write(builder.toString().getBytes(), outputFile);
-				System.out.println("\n");
+				
 				System.out.println(builder.toString());
-				System.out.println("\n");
 			} catch (IOException e) {
 				e.printStackTrace();
 			}

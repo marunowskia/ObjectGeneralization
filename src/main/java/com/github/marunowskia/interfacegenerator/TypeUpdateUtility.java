@@ -5,12 +5,15 @@ import static java.util.Optional.*;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
 public class TypeUpdateUtility {
 
-	public static String updateType(String type, Hashtable<String, InterfaceDefinition> replacements) {
+	public static String updateType(String type, Map<String, InterfaceDefinition> replacements) {
 		checkNotNull(type, "type not specified");
 		type = type.trim();
 		checkArgument(Character.isJavaIdentifierStart(type.charAt(0)), "Type is not a valid java type.");
@@ -19,6 +22,7 @@ public class TypeUpdateUtility {
 		// FIXME: There are invalid java type string that can get past these input checks.
 		
 		String outerComponent = substringBefore(type, "<");
+		System.out.println("REplacement for com.github.marunowskia.interfacegenerator.demo.Leaf1: " + replacements.get("com.github.marunowskia.interfacegenerator.demo.Leaf1"));
 		outerComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getName()).orElse(outerComponent);
 		
 		StringBuilder resultBuilder = new StringBuilder();
@@ -34,7 +38,7 @@ public class TypeUpdateUtility {
 		return normalizeSpace(resultBuilder.toString());
 	}
 	
-	public static String updateGenericList(String genericList, Hashtable<String, InterfaceDefinition> replacements) {
+	public static String updateGenericList(String genericList, Map<String, InterfaceDefinition> replacements) {
 		List<String> updatedGenerics = new ArrayList<>();
 		
 		StringBuilder genericTypeBuffer = new StringBuilder();
@@ -54,7 +58,7 @@ public class TypeUpdateUtility {
 		return String.join(", ", updatedGenerics);
 	}
 	
-	public static String updateGeneric(String generic, Hashtable<String, InterfaceDefinition> replacements) {
+	public static String updateGeneric(String generic, Map<String, InterfaceDefinition> replacements) {
 		
 		if(generic.equals    ("?"))          return generic;
 		if(generic.startsWith("? super "))   return generic;
@@ -72,6 +76,7 @@ public class TypeUpdateUtility {
 	}
 	
 	private static boolean checkBalancedBrackets(String input) {
+		
 		return checkBalancedCharacters('<','>',input);
 	}
 	
