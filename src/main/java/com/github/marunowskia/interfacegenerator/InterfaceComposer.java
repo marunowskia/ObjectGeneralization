@@ -7,9 +7,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Hashtable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.common.graph.ValueGraph;
@@ -93,7 +94,7 @@ public class InterfaceComposer {
 		public List<String> genericParameters = new ArrayList<>();
 		public List<String> dependencies = new ArrayList<>();
 		public List<InterfaceDefinition> mustExtend = new ArrayList<>();
-		public List<String> methodSignatures = new ArrayList<>();
+		public Set<String> methodSignatures = new HashSet<>();
 		public String getPkg() {
 			return pkg;
 		}
@@ -124,10 +125,10 @@ public class InterfaceComposer {
 		public void setMustExtend(List<InterfaceDefinition> mustExtend) {
 			this.mustExtend = mustExtend;
 		}
-		public List<String> getMethodSignatures() {
+		public Set<String> getMethodSignatures() {
 			return methodSignatures;
 		}
-		public void setMethodSignatures(List<String> methodSignatures) {
+		public void setMethodSignatures(Set<String> methodSignatures) {
 			this.methodSignatures = methodSignatures;
 		}
 	}

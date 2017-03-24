@@ -15,6 +15,7 @@ import com.github.javaparser.ParseException;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 public class InterfaceComposerTest {
 
@@ -54,7 +55,7 @@ public class InterfaceComposerTest {
 		
 		singleInterface.mustExtend = Lists.newArrayList();
 
-		singleInterface.methodSignatures = Lists.newArrayList(
+		singleInterface.methodSignatures = Sets.newHashSet(
 				"boolean add(E arg0)",
 				"boolean remove(Object arg0)",
 				"boolean containsAll(Collection<?> arg0)",

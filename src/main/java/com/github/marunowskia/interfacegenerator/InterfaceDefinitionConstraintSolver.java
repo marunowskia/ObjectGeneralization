@@ -49,7 +49,7 @@ public class InterfaceDefinitionConstraintSolver {
 				topLevelInterface.getMethodSignatures()
 						.stream()
 						.map(signature -> updateSignature(signature, typeToInterfaceMap))
-						.collect(Collectors.toList())
+						.collect(Collectors.toSet())
 				);
 			topLevelInterface = structure.add(topLevelInterface, Collections.singletonList(name)); // name must be fully qualified!
 			structure.collapse();
@@ -58,10 +58,11 @@ public class InterfaceDefinitionConstraintSolver {
 			typeToInterfaceMap.clear();
 			structure.getImplementingTypes().forEach((k,v)-> {
 				v.forEach(implementingType -> {
+					typeToInterfaceMap.put(StringUtils.substringAfterLast(implementingType, "."), k);
 					typeToInterfaceMap.put(implementingType, k);
 				});
 			});
-			
+			typeToInterfaceMap.put(StringUtils.substringAfterLast(name, "."), topLevelInterface);
 			typeToInterfaceMap.put(name, topLevelInterface);
 		}));
 		structure.collapse();
@@ -86,7 +87,7 @@ public class InterfaceDefinitionConstraintSolver {
 		paredSignature = StringUtils.substringBefore(paredSignature, "(")
 						  .trim(); // Remove possible space after methodName
 		
-		String returnType = StringUtils.substringBefore(paredSignature, " ");
+		String returnType = StringUtils.substringBeforeLast(paredSignature, " ");
 		String updatedReturnType = TypeUpdateUtility.updateType(returnType, replacements);
 		return methodSignature.replaceFirst(returnType, updatedReturnType);
 	}

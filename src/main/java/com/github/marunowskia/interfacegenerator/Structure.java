@@ -39,7 +39,7 @@ public class Structure {
     	}
     	List<InterfaceDefinition> intersectionResults = new ArrayList<>();
 		for(InterfaceDefinition oldInterface : structureContents) {
-			List<String> intersectingMethods = getIntersection(newInterface, oldInterface); 
+			Set<String> intersectingMethods = getIntersection(newInterface, oldInterface); 
 			
 			if(!CollectionUtils.isEmpty(intersectingMethods)) {
 				InterfaceDefinition sharedMethodInterface = new InterfaceDefinition();
@@ -74,18 +74,18 @@ public class Structure {
 		return newInterface;
 	}
 	
-	private List<String> getAllMethods(InterfaceDefinition from) {
+	private Set<String> getAllMethods(InterfaceDefinition from) {
 		// Will break on cyclic dependencies. But so will Java itself...
-		List<String> result = new ArrayList<String>();
+		Set<String> result = new HashSet<String>();
 		result.addAll(from.getMethodSignatures());
 		from.getMustExtend().forEach(extended->result.addAll(getAllMethods(extended)));
 		return result;
 	}
 	
-	private List<String> getIntersection(InterfaceDefinition newInterface, InterfaceDefinition oldInterface) {
-		List<String> oldMethods = getAllMethods(oldInterface);
-		List<String> newMethods = getAllMethods(newInterface);
-		return oldMethods.stream().filter(newMethods::contains).collect(Collectors.toList());
+	private Set<String> getIntersection(InterfaceDefinition newInterface, InterfaceDefinition oldInterface) {
+		Set<String> oldMethods = getAllMethods(oldInterface);
+		Set<String> newMethods = getAllMethods(newInterface);
+		return oldMethods.stream().filter(newMethods::contains).collect(Collectors.toSet());
 	}
 	
 	class MethodSignature {

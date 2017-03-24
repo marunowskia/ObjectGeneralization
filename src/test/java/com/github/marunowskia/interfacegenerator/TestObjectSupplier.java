@@ -1,7 +1,10 @@
 package com.github.marunowskia.interfacegenerator;
 
+import java.util.Set;
+
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 public class TestObjectSupplier {
 
@@ -34,7 +37,7 @@ public class TestObjectSupplier {
 		
 		singleInterface.mustExtend = Lists.newArrayList();
 
-		singleInterface.methodSignatures = Lists.newArrayList(
+		singleInterface.methodSignatures = Sets.newHashSet(
 				"boolean add(E arg0)",
 				"boolean remove(Object arg0)",
 				"boolean containsAll(Collection<?> arg0)",

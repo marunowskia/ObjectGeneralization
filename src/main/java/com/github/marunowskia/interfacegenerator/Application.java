@@ -6,10 +6,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
@@ -33,18 +35,32 @@ import com.google.common.io.Files;
 public class Application {
 
 	public static void main(String args[]) {
-//		Path parentPathOfTargets = Paths.get("/Users/marunal/common/uws-in-thingspace/UwsCompatibility/");
-		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/src/main/java/com/github/marunowskia/interfacegenerator/demo");
-//		Path parentPathOfTargets = Paths.get("/home/alex/workspaces/java/ObjectGeneralization/src/");
+		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/uws-in-thingspace/branches/NPDIOTP-10839-investigate-beanutil-customization/uws-in-thingspace/UwsCompatibility/SoapContractDeviceService/src");
+		//		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/src/main/java/com/github/marunowskia/interfacegenerator/demo");
+		//		Path parentPathOfTargets = Paths.get("/home/alex/workspaces/java/ObjectGeneralization/src/");
 
 		File parentDirectoryOfTargets = parentPathOfTargets.toFile();
 
-		Collection<File> allJavaFiles =  
-				FileUtils.listFiles(
-						parentDirectoryOfTargets, 
-						FileFilterUtils.suffixFileFilter(".java"), 
-						DirectoryFileFilter.DIRECTORY);
+
+		Collection<File> allJavaFiles =  new ArrayList<>();
+
+		Collection<File> desiredDirs = 
+		FileUtils.listFilesAndDirs(
+				parentDirectoryOfTargets, 
+				FileFilterUtils.falseFileFilter(), 
+				FileFilterUtils.prefixFileFilter("SoapContract")
+			);
 		
+		System.out.println(desiredDirs);
+		desiredDirs.forEach(dir -> {
+					allJavaFiles.addAll(
+						FileUtils.listFiles(
+							dir,
+							FileFilterUtils.suffixFileFilter(".java"), 
+							DirectoryFileFilter.DIRECTORY)
+					);
+				});
+
 		allJavaFiles.forEach(System.out::println);
 
 		// Construct type dependency graph
@@ -75,7 +91,7 @@ public class Application {
 					});
 				}
 
-				
+
 				Hashtable<String, List<String>> requestReturnTypeMethodNames = new Hashtable<>();
 				if(Objects.nonNull(fileContents.getTypes())) {
 					fileContents.getTypes().forEach(type -> {
@@ -93,8 +109,8 @@ public class Application {
 						String typeName = type.getName();
 						classToCompilationMap.put(packagePath + "." + typeName, fileContents);
 						typeToTypeDeclaration.put(packagePath + "." + typeName, type);
-						
-						
+
+
 
 						type.getMembers().forEach(member -> {
 							if(member instanceof MethodDeclaration) {
@@ -106,24 +122,28 @@ public class Application {
 
 									// There is an edge from this class to another class which is named [the method's name]
 									String requestingTypePath =  packagePath + "." + typeName;
-									
-									String returnTypePath = method.getType().toStringWithoutComments();
-									
-									if(classToPackageMap.containsKey(returnTypePath)) {
-										returnTypePath = classToPackageMap.get(returnTypePath);
-									}
-									
-									System.out.println("requesting class: " +requestingTypePath);
-									System.out.println("return type class: " + returnTypePath);
-									String key = requestingTypePath + "|" + returnTypePath;
-									List<String> methodNameList = requestReturnTypeMethodNames.getOrDefault(key, Lists.newArrayList());
-									methodNameList.add("public " + returnTypePath + " " + method.getName() + "()");
-									requestReturnTypeMethodNames.put(key, methodNameList);
+
+									Set<String> returnTypePaths = TypeUpdateUtility.getAllReferencedTypes(method.getType().toStringWithoutComments());
+									returnTypePaths.forEach(returnTypePath -> {
+										if(classToPackageMap.containsKey(returnTypePath)) {
+											returnTypePath = classToPackageMap.get(returnTypePath);
+										}
+	
+										System.out.println("requesting class: " +requestingTypePath);
+										System.out.println("return type class: " + returnTypePath);
+										
+										
+										String key = requestingTypePath + "|" + returnTypePath;
+										List<String> methodNameList = requestReturnTypeMethodNames.getOrDefault(key, Lists.newArrayList());
+										methodNameList.add("public " + method.getType().toStringWithoutComments() + " " + method.getName() + "()");
+										
+										requestReturnTypeMethodNames.put(key, methodNameList);
+									});
 								}
 							}
 						});;
 					});
-					
+
 					requestReturnTypeMethodNames.keySet().forEach(key-> {
 						List<String> methodNames = requestReturnTypeMethodNames.get(key);
 						nameGraph.putEdgeValue(
@@ -145,25 +165,25 @@ public class Application {
 		File outputDirectory = Files.createTempDir();
 		System.out.println(outputDirectory.getAbsolutePath());
 		InterfaceComposer.generateAndExportInterfaces(nameGraph, outputDirectory);
-//		int a=0;
-//		while(!nameGraph.nodes().isEmpty()) {
-//			a++;
-//			List<String> leafNodes = getLeafNodes(nameGraph);
-//
-//			final int b=a;
-//			// Convert all the non-frozen leaf classes into frozen classes.
-//			leafNodes.forEach(str -> {
-//				System.out.println(Strings.repeat("\t",  b) + b + str);
-//				TypeDeclaration decl = typeToTypeDeclaration.get(str);
-//				if(decl!=null) {
-//					if(decl.getMembers()!=null) {
-////						decl.getMembers().forEach(member -> {System.out.println("member: " + member);});
-//					}
-////					System.out.println(Strings.repeat("\t",  b) + decl.toString());
-//				}
-//				nameGraph.removeNode(str);
-//			});
-//		}
+		//		int a=0;
+		//		while(!nameGraph.nodes().isEmpty()) {
+		//			a++;
+		//			List<String> leafNodes = getLeafNodes(nameGraph);
+		//
+		//			final int b=a;
+		//			// Convert all the non-frozen leaf classes into frozen classes.
+		//			leafNodes.forEach(str -> {
+		//				System.out.println(Strings.repeat("\t",  b) + b + str);
+		//				TypeDeclaration decl = typeToTypeDeclaration.get(str);
+		//				if(decl!=null) {
+		//					if(decl.getMembers()!=null) {
+		////						decl.getMembers().forEach(member -> {System.out.println("member: " + member);});
+		//					}
+		////					System.out.println(Strings.repeat("\t",  b) + decl.toString());
+		//				}
+		//				nameGraph.removeNode(str);
+		//			});
+		//		}
 	}
 
 	private static List<String> getLeafNodes(MutableValueGraph<String, List<String>> graph) {
