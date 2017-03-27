@@ -35,9 +35,9 @@ import com.google.common.io.Files;
 public class Application {
 
 	public static void main(String args[]) {
-		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/uws-in-thingspace/branches/NPDIOTP-10839-investigate-beanutil-customization/uws-in-thingspace/UwsCompatibility/SoapContractDeviceService/src");
+//		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/uws-in-thingspace/branches/NPDIOTP-10839-investigate-beanutil-customization/uws-in-thingspace/UwsCompatibility/SoapContractDeviceService/src");
 		//		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/src/main/java/com/github/marunowskia/interfacegenerator/demo");
-		//		Path parentPathOfTargets = Paths.get("/home/alex/workspaces/java/ObjectGeneralization/src/");
+				Path parentPathOfTargets = Paths.get("/home/alex/workspaces/java/ObjectGeneralization/src/main/java/com/github/marunowskia/interfacegenerator/demo");
 
 		File parentDirectoryOfTargets = parentPathOfTargets.toFile();
 

@@ -16,7 +16,7 @@ public class TestObjectSupplier {
 		singleInterface.pkg = "com.github.marunowskia.interfacegenerator";
 		
 
-		singleInterface.dependencies = Lists.newArrayList(
+		singleInterface.dependencies = Sets.newHashSet(
 				"java.util.Collection",
 				"java.io.File",
 				"java.io.IOException",
@@ -31,11 +31,11 @@ public class TestObjectSupplier {
 				);
 		
 		singleInterface.name = name;
-		singleInterface.genericParameters = Lists.newArrayList(
+		singleInterface.genericParameters = Sets.newHashSet(
 				"E"
 				);
 		
-		singleInterface.mustExtend = Lists.newArrayList();
+		singleInterface.mustExtend = Sets.newHashSet();
 
 		singleInterface.methodSignatures = Sets.newHashSet(
 				"boolean add(E arg0)",

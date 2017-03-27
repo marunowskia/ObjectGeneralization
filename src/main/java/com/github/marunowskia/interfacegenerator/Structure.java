@@ -4,6 +4,7 @@ import static org.apache.commons.collections4.CollectionUtils.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
 import lombok.Getter;
@@ -31,15 +32,32 @@ public class Structure {
     
     public InterfaceDefinition add(InterfaceDefinition newInterface, List<String> implementors) {
     	
+    	if(implementors.contains("com.github.marunowskia.interfacegenerator.demo.Middle23")) {
+    		System.out.println("Adding Leaf 2");
+    	}
+    	
     	if(implementingTypes.containsKey(newInterface)) {
     		implementingTypes.get(newInterface).addAll(implementors);
     	}
     	else {
     		implementingTypes.put(newInterface, implementors);
     	}
+
+    	// Figure out which methods are already covered.
+    	Set<String> coveredMethods = new HashSet<>();
+    	InterfaceDefinition largestOverlap;
+    	while(null != (largestOverlap = getLargestIntersectionWithUncoveredMethods(newInterface, coveredMethods))) {
+    		newInterface.getMustExtend().add(largestOverlap);
+    		coveredMethods.addAll(getIntersection(newInterface, largestOverlap));
+    	}
+    	newInterface.getMethodSignatures().removeAll(coveredMethods);
+    	
+    	
     	List<InterfaceDefinition> intersectionResults = new ArrayList<>();
 		for(InterfaceDefinition oldInterface : structureContents) {
-			Set<String> intersectingMethods = getIntersection(newInterface, oldInterface); 
+			
+			Set<String> intersectingMethods = getIntersection(newInterface, oldInterface);
+			intersectingMethods.removeAll(coveredMethods);
 			
 			if(!CollectionUtils.isEmpty(intersectingMethods)) {
 				InterfaceDefinition sharedMethodInterface = new InterfaceDefinition();
@@ -69,9 +87,50 @@ public class Structure {
 				intersectionResults.add(sharedMethodInterface);
 			}
 		}
+		
+		if(CollectionUtils.isNotEmpty(newInterface.getMethodSignatures())) {
+			structureContents.add(newInterface);				
+		}
+		
 		structureContents.addAll(intersectionResults);
-		structureContents.add(newInterface);	
 		return newInterface;
+	}
+	
+	private InterfaceDefinition getLargestIntersectionWithUncoveredMethods(InterfaceDefinition newInterface, Set<String> existingCoverage) {
+		
+		
+		if(newInterface.name.equals("IMiddle23")) {
+			System.out.println("Getting intersections for IMiddle23");
+		}
+		int mostIntersections = 0;
+		InterfaceDefinition largest = null;
+		// Todo: prove, if possible, that any ties for "largest overlap" are inconsequential. 
+		// Current hope is that 
+		for(InterfaceDefinition compare : structureContents) {
+			if(compare==newInterface) {
+				continue;
+			}
+			
+			
+			Set<String> overlap = getIntersection(newInterface, compare);
+			
+			if(CollectionUtils.isSubCollection(overlap, existingCoverage)) {
+				// if the intersection between "compare" and "newInterface" is already accounted for, 
+				// then making "newInterface" extend "compare" would just get pruned later as a redundant superclass. 
+				continue;
+			}
+			
+			// Make sure that newInterface's methods are a superset of "compare's methods"
+			if(CollectionUtils.isSubCollection(
+					getAllMethods(compare), 
+					newInterface.getMethodSignatures())) {
+				if(overlap.size()>mostIntersections) {
+					largest = compare;
+				}
+			}
+		}
+		
+		return largest;
 	}
 	
 	private Set<String> getAllMethods(InterfaceDefinition from) {
@@ -81,6 +140,7 @@ public class Structure {
 		from.getMustExtend().forEach(extended->result.addAll(getAllMethods(extended)));
 		return result;
 	}
+
 	
 	private Set<String> getIntersection(InterfaceDefinition newInterface, InterfaceDefinition oldInterface) {
 		Set<String> oldMethods = getAllMethods(oldInterface);
@@ -128,11 +188,41 @@ public class Structure {
         for(InterfaceDefinition definition : structureContents) {
             if(size(definition.getMustExtend()) == 1) {
                 if(isEmpty(definition.getMethodSignatures())) {
-                    replacementPairs.put(definition, definition.getMustExtend().get(0));
+                    replacementPairs.put(
+                    		definition, 
+                    		CollectionUtils.extractSingleton(definition.getMustExtend()));
                 }
             }
         }
         replaceAll(replacementPairs);
+    }
+    
+    public void pruneRedundantSuperclasses() {
+    	// A type hierarchy may contain redundant superclass declarations. For examples:
+    	// A extends B,C
+    	// B extends C
+    	// Therefore, the "C superclass" declaration on type A is redundant.
+    	
+    	// This method prunes those redundant declarations.
+    	structureContents.forEach(this::pruneRedundantSuperclasses);
+    }
+    
+    public void pruneRedundantSuperclasses(InterfaceDefinition forThisInterface) {
+    	List<InterfaceDefinition> toRemove = new ArrayList<>();
+    	for(InterfaceDefinition extended : forThisInterface.mustExtend) {
+    		for(InterfaceDefinition otherExtended : forThisInterface.mustExtend) {
+    			if(extended != otherExtended) {
+    				if(getAllSuperTypes(otherExtended).anyMatch(supertype -> supertype == extended)) {
+    					toRemove.add(extended);
+    				}
+    			}
+    		}
+    	}
+    	forThisInterface.getMustExtend().removeAll(toRemove);
+    }
+    
+    public Stream<InterfaceDefinition> getAllSuperTypes(InterfaceDefinition ofThisInterface) {
+    	return ofThisInterface.getMustExtend().stream().flatMap(this::getAllSuperTypes);
     }
 
     public void replace(InterfaceDefinition replaceThis, InterfaceDefinition with, HashMap<InterfaceDefinition, InterfaceDefinition> plannedReplacements) {

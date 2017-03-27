@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.ValueGraph;
 import com.google.common.io.Files;
 
@@ -24,8 +25,10 @@ public class InterfaceComposer {
 
 	
 	public static void generateAndExportInterfaces(ValueGraph<String, List<String>> methodGraph, File outputDirectory) {
-		List<InterfaceDefinition> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
-		outputInterfaces(optimizedInterfaces, outputDirectory);
+//		List<InterfaceDefinition> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
+//		InterfaceDefinitionConstraintSolver.buildInterfaceDefinitions(methodGraph);
+		Set<InterfaceDefinition> result = InterfaceDefinitionConstraintSolver.buildResult(methodGraph);
+		outputInterfaces(InterfaceDefinitionConstraintSolver.buildResult(methodGraph), outputDirectory);
 	}
 	
 	
@@ -49,19 +52,19 @@ public class InterfaceComposer {
 
 
 			
-			List<String> extendsList = ofNullable(def.mustExtend).orElse(new ArrayList<>())
-													 .stream().map(id->id.name).collect(Collectors.toList());
+			Set<String> extendsList = ofNullable(def.mustExtend).orElse(new HashSet<>())
+													 .stream().map(id->id.name).collect(Collectors.toSet());
 
 //			builder.append("package ").append(def.pkg).append(";\n");
-			ofNullable(def.dependencies).orElse(new ArrayList<>()).forEach(str -> builder.append("import ").append(str).append(";\n"));
+			ofNullable(def.dependencies).orElse(new HashSet<>()).forEach(str -> builder.append("import ").append(str).append(";\n"));
 			builder.append("\npublic interface ").append(def.name);
 
-			if(0 < Optional.ofNullable(def.genericParameters).map(List::size).orElse(0)) {
+			if(0 < Optional.ofNullable(def.genericParameters).map(Set::size).orElse(0)) {
 				System.out.println("have generic parameters");
 				builder.append(" <").append(String.join(", ", def.genericParameters)).append("> ");
 			}
 
-			if(0 < Optional.ofNullable(extendsList).map(List::size).orElse(0)) {
+			if(0 < Optional.ofNullable(extendsList).map(Set::size).orElse(0)) {
 				builder.append(" extends ").append(String.join(", ", extendsList));
 			}
 			builder.append(" {\n");
@@ -91,38 +94,53 @@ public class InterfaceComposer {
 
 		public String pkg;
 		public String name;
-		public List<String> genericParameters = new ArrayList<>();
-		public List<String> dependencies = new ArrayList<>();
-		public List<InterfaceDefinition> mustExtend = new ArrayList<>();
+		public Set<String> genericParameters = new HashSet<>();
+		public Set<String> dependencies = new HashSet<>();
+		
+		public Set<InterfaceDefinition> mustExtend = new HashSet<>();
+		
+		public Set<InterfaceDefinition> extendedBy = new HashSet<>();
+		public Set<String> implementedBy = new HashSet<>();
+		
 		public Set<String> methodSignatures = new HashSet<>();
+		
+		public InterfaceDefinition(String pkg, String name) {
+			this.pkg = pkg;
+			this.name = name;
+		}
+		
+		public InterfaceDefinition() {
+		}
+		
 		public String getPkg() {
 			return pkg;
-		}
-		public void setPkg(String pkg) {
-			this.pkg = pkg;
 		}
 		public String getName() {
 			return name;
 		}
-		public void setName(String name) {
-			this.name = name;
+		
+		public String setPkg(String setTo) {
+			return pkg = setTo;
 		}
-		public List<String> getGenericParameters() {
+		public String setName(String setTo) {
+			return name = setTo;
+		}
+		public Set<String> getGenericParameters() {
 			return genericParameters;
 		}
-		public void setGenericParameters(List<String> genericParameters) {
+		public void setGenericParameters(Set<String> genericParameters) {
 			this.genericParameters = genericParameters;
 		}
-		public List<String> getDependencies() {
+		public Set<String> getDependencies() {
 			return dependencies;
 		}
-		public void setDependencies(List<String> dependencies) {
+		public void setDependencies(Set<String> dependencies) {
 			this.dependencies = dependencies;
 		}
-		public List<InterfaceDefinition> getMustExtend() {
+		public Set<InterfaceDefinition> getMustExtend() {
 			return mustExtend;
 		}
-		public void setMustExtend(List<InterfaceDefinition> mustExtend) {
+		public void setMustExtend(Set<InterfaceDefinition> mustExtend) {
 			this.mustExtend = mustExtend;
 		}
 		public Set<String> getMethodSignatures() {
@@ -131,5 +149,51 @@ public class InterfaceComposer {
 		public void setMethodSignatures(Set<String> methodSignatures) {
 			this.methodSignatures = methodSignatures;
 		}
+		
+		public Set<InterfaceDefinition> getExtendedBy() {
+			return extendedBy;
+		}
+		public void setExtendedBy(Set<InterfaceDefinition> extendedBy) {
+			this.extendedBy = extendedBy;
+		}
+		
+		
+		public Set<String> getImplementedBy() {
+			return implementedBy;
+		}
+		public void setImplementedBy(Set<String> implementedBy) {
+			this.implementedBy = implementedBy;
+		}
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + ((name == null) ? 0 : name.hashCode());
+			result = prime * result + ((pkg == null) ? 0 : pkg.hashCode());
+			return result;
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			InterfaceDefinition other = (InterfaceDefinition) obj;
+			if (name == null) {
+				if (other.name != null)
+					return false;
+			} else if (!name.equals(other.name))
+				return false;
+			if (pkg == null) {
+				if (other.pkg != null)
+					return false;
+			} else if (!pkg.equals(other.pkg))
+				return false;
+			return true;
+		}
+		
+		
 	}
 }
