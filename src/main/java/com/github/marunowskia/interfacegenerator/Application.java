@@ -36,7 +36,7 @@ public class Application {
 
 	public static void main(String args[]) {
 		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/uws-in-thingspace/branches/NPDIOTP-10839-investigate-beanutil-customization/uws-in-thingspace/UwsCompatibility/SoapContractDeviceService/src");
-		//		Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/src/main/java/com/github/marunowskia/interfacegenerator/demo");
+//				Path parentPathOfTargets = Paths.get("/Users/marunal/workspaces/java/opensource/ObjectGeneralization/src/main/java/com/github/marunowskia/interfacegenerator/demo");
 		//		Path parentPathOfTargets = Paths.get("/home/alex/workspaces/java/ObjectGeneralization/src/");
 
 		File parentDirectoryOfTargets = parentPathOfTargets.toFile();
@@ -66,7 +66,7 @@ public class Application {
 		// Construct type dependency graph
 
 
-		MutableValueGraph<String, List<String>> nameGraph = com.google.common.graph.ValueGraphBuilder.directed().build();
+		MutableValueGraph<String, List<MethodDeclaration>> nameGraph = com.google.common.graph.ValueGraphBuilder.directed().build();
 		Hashtable<String, TypeDeclaration> typeToTypeDeclaration = new Hashtable<>();
 
 		allJavaFiles.forEach(file -> {
@@ -92,7 +92,7 @@ public class Application {
 				}
 
 
-				Hashtable<String, List<String>> requestReturnTypeMethodNames = new Hashtable<>();
+				Hashtable<String, List<MethodDeclaration>> requestReturnTypeMethodNames = new Hashtable<>();
 				if(Objects.nonNull(fileContents.getTypes())) {
 					fileContents.getTypes().forEach(type -> {
 
@@ -134,10 +134,9 @@ public class Application {
 										
 										
 										String key = requestingTypePath + "|" + returnTypePath;
-										List<String> methodNameList = requestReturnTypeMethodNames.getOrDefault(key, Lists.newArrayList());
-										methodNameList.add("public " + method.getType().toStringWithoutComments() + " " + method.getName() + "()");
-										
-										requestReturnTypeMethodNames.put(key, methodNameList);
+										List<MethodDeclaration> methodNameList = requestReturnTypeMethodNames.getOrDefault(key, Lists.newArrayList());
+										requestReturnTypeMethodNames.put(key, methodNameList);// In case we just created this
+										methodNameList.add(method);
 									});
 								}
 							}
@@ -145,7 +144,7 @@ public class Application {
 					});
 
 					requestReturnTypeMethodNames.keySet().forEach(key-> {
-						List<String> methodNames = requestReturnTypeMethodNames.get(key);
+						List<MethodDeclaration> methodNames = requestReturnTypeMethodNames.get(key);
 						nameGraph.putEdgeValue(
 								StringUtils.substringBefore(key, "|"), 
 								StringUtils.substringAfter(key, "|"),

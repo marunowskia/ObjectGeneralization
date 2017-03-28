@@ -20,6 +20,7 @@ public class TypeUpdateUtility {
 	public static Set<String> getAllReferencedTypes(String type) {
 		return Arrays.stream(type.split("[^A-Za-z_0-9$]+"))
 			  .filter(StringUtils::isNotBlank)
+			  .filter(ref -> !"extends".equals(ref))
 			  .collect(Collectors.toSet());
 	}
 	
@@ -33,7 +34,9 @@ public class TypeUpdateUtility {
 		// FIXME: There are invalid java type string that can get past these input checks.
 		
 		String outerComponent = substringBefore(type, "<");
-		System.out.println("Replacement for " + type + ": " + replacements.get(type));
+		if(type.contains("(")) {
+			System.out.println("Replacement for " + type + ": " + replacements.get(type));
+		}
 		outerComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getName()).orElse(outerComponent);
 		
 		StringBuilder resultBuilder = new StringBuilder();

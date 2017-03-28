@@ -7,12 +7,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.github.javaparser.ast.body.MethodDeclaration;
 import com.google.common.graph.ValueGraph;
 import com.google.common.io.Files;
 
@@ -23,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 public class InterfaceComposer {
 
 	
-	public static void generateAndExportInterfaces(ValueGraph<String, List<String>> methodGraph, File outputDirectory) {
+	public static void generateAndExportInterfaces(ValueGraph<String, List<MethodDeclaration>> methodGraph, File outputDirectory) {
 		List<InterfaceDefinition> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
 		outputInterfaces(optimizedInterfaces, outputDirectory);
 	}
@@ -36,7 +37,9 @@ public class InterfaceComposer {
 			Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\.")).resolve(def.name);
 			System.out.println(outputPath);
 		});
+		
 		requiredInterfaces.forEach(def -> {
+			
 			StringBuilder builder = new StringBuilder();
 
 			// ==================== Output file structure ====================
@@ -66,10 +69,11 @@ public class InterfaceComposer {
 			}
 			builder.append(" {\n");
 			
-			def.methodSignatures.forEach(str -> builder.append("\t").append(str).append(";\n"));
+			def.getMethodSignatures().keySet().forEach(str -> builder.append("\t").append(str).append(";\n"));
 			builder.append("}");
 
 
+			
 			// Write the string builder's content to the appropriate output file.
 			try {
 				Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\.")).resolve(def.name);
@@ -80,6 +84,7 @@ public class InterfaceComposer {
 				outputFile.createNewFile();
 				
 				System.out.println(builder.toString());
+				
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -94,7 +99,7 @@ public class InterfaceComposer {
 		public List<String> genericParameters = new ArrayList<>();
 		public List<String> dependencies = new ArrayList<>();
 		public List<InterfaceDefinition> mustExtend = new ArrayList<>();
-		public Set<String> methodSignatures = new HashSet<>();
+		public HashMap<String, MethodDeclaration> methodSignatures = new HashMap<>();
 		public String getPkg() {
 			return pkg;
 		}
@@ -125,11 +130,65 @@ public class InterfaceComposer {
 		public void setMustExtend(List<InterfaceDefinition> mustExtend) {
 			this.mustExtend = mustExtend;
 		}
-		public Set<String> getMethodSignatures() {
+		public HashMap<String, MethodDeclaration> getMethodSignatures() {
 			return methodSignatures;
 		}
-		public void setMethodSignatures(Set<String> methodSignatures) {
+		public void setMethodSignatures(HashMap<String, MethodDeclaration> methodSignatures) {
 			this.methodSignatures = methodSignatures;
 		}
+		@Override
+		public String toString() {
+			return "InterfaceDefinition [pkg=" + pkg + ", name=" + name + ", genericParameters=" + genericParameters
+					+ ", dependencies=" + dependencies + ", methodSignatures=" + methodSignatures + "]";
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			InterfaceDefinition other = (InterfaceDefinition) obj;
+			if (dependencies == null) {
+				if (other.dependencies != null)
+					return false;
+			} else if (!dependencies.equals(other.dependencies))
+				return false;
+			if (genericParameters == null) {
+				if (other.genericParameters != null)
+					return false;
+			} else if (!genericParameters.equals(other.genericParameters))
+				return false;
+			if (methodSignatures == null) {
+				if (other.methodSignatures != null)
+					return false;
+			} else if (!methodSignatures.equals(other.methodSignatures))
+				return false;
+			if (name == null) {
+				if (other.name != null)
+					return false;
+			} else if (!name.equals(other.name))
+				return false;
+			if (pkg == null) {
+				if (other.pkg != null)
+					return false;
+			} else if (!pkg.equals(other.pkg))
+				return false;
+			return true;
+		}
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + ((dependencies == null) ? 0 : dependencies.hashCode());
+			result = prime * result + ((genericParameters == null) ? 0 : genericParameters.hashCode());
+			result = prime * result + ((methodSignatures == null) ? 0 : methodSignatures.hashCode());
+			result = prime * result + ((name == null) ? 0 : name.hashCode());
+			result = prime * result + ((pkg == null) ? 0 : pkg.hashCode());
+			return result;
+		}
+		
+		
 	}
 }
