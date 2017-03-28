@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 public class InterfaceComposer {
 
 	
-	public static void generateAndExportInterfaces(ValueGraph<String, List<String>> methodGraph, File outputDirectory) {
+	public static void generateAndExportInterfaces(ValueGraph<String, List<GenericMethod>> methodGraph, File outputDirectory) {
 //		List<InterfaceDefinition> optimizedInterfaces = InterfaceDefinitionConstraintSolver.satisfyConstraints(methodGraph);
 //		InterfaceDefinitionConstraintSolver.buildInterfaceDefinitions(methodGraph);
 		Set<InterfaceDefinition> result = InterfaceDefinitionConstraintSolver.buildResult(methodGraph);
@@ -69,7 +69,7 @@ public class InterfaceComposer {
 			}
 			builder.append(" {\n");
 			
-			def.methodSignatures.forEach(str -> builder.append("\t").append(str).append(";\n"));
+			def.methodSignatures.forEach(method -> builder.append("\t").append(method.getMethodSignature()).append(";\n"));
 			builder.append("}");
 
 
@@ -102,7 +102,7 @@ public class InterfaceComposer {
 		public Set<InterfaceDefinition> extendedBy = new HashSet<>();
 		public Set<String> implementedBy = new HashSet<>();
 		
-		public Set<String> methodSignatures = new HashSet<>();
+		public Set<GenericMethod> methodSignatures = new HashSet<>();
 		
 		public InterfaceDefinition(String pkg, String name) {
 			this.pkg = pkg;
@@ -143,10 +143,10 @@ public class InterfaceComposer {
 		public void setMustExtend(Set<InterfaceDefinition> mustExtend) {
 			this.mustExtend = mustExtend;
 		}
-		public Set<String> getMethodSignatures() {
+		public Set<GenericMethod> getMethodSignatures() {
 			return methodSignatures;
 		}
-		public void setMethodSignatures(Set<String> methodSignatures) {
+		public void setMethodSignatures(Set<GenericMethod> methodSignatures) {
 			this.methodSignatures = methodSignatures;
 		}
 		
