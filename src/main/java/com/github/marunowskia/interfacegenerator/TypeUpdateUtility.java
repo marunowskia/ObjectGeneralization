@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
@@ -28,10 +30,16 @@ public class TypeUpdateUtility {
 	public static String updateType(String type, Map<String, InterfaceDefinition> replacements) {
 		checkNotNull(type, "type not specified");
 		type = type.trim();
+		
+		
 		checkArgument(Character.isJavaIdentifierStart(type.charAt(0)), "Type is not a valid java type.");
 		checkArgument(checkBalancedBrackets(type), "Brackets are not balanced");
 		
 		// FIXME: There are invalid java type string that can get past these input checks.
+
+		if(MapUtils.isEmpty(replacements)) {
+			return type; 
+		}
 		
 		String outerComponent = substringBefore(type, "<");
 		System.out.println("Replacement for " + type + ": " + replacements.get(type));
