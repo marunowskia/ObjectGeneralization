@@ -38,11 +38,11 @@ public class TypeUpdateUtility {
 		// FIXME: There are invalid java type string that can get past these input checks.
 
 		if(MapUtils.isEmpty(replacements)) {
-			return type; 
+			return type;  
 		}
 		
 		String outerComponent = substringBefore(type, "<");
-		System.out.println("Replacement for " + type + ": " + replacements.get(type));
+//		System.out.println("Replacement for " + type + ": " + replacements.get(type));
 		outerComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getName()).orElse(outerComponent);
 		
 		StringBuilder resultBuilder = new StringBuilder();
@@ -55,7 +55,7 @@ public class TypeUpdateUtility {
 							.append('>');
 		}
 		String result = normalizeSpace(resultBuilder.toString());
-		System.out.printf("Replacement for %s: %s\n", type, result);
+//		System.out.printf("Replacement for %s: %s\n", type, result);
 		
 		return result;
 	}

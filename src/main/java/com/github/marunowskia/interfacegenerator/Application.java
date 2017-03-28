@@ -130,8 +130,8 @@ public class Application {
 											returnTypePath = classToPackageMap.get(returnTypePath);
 										}
 	
-										System.out.println("requesting class: " +requestingTypePath);
-										System.out.println("return type class: " + returnTypePath);
+//										System.out.println("requesting class: " +requestingTypePath);
+//										System.out.println("return type class: " + returnTypePath);
 										
 										
 										String key = requestingTypePath + "|" + returnTypePath;

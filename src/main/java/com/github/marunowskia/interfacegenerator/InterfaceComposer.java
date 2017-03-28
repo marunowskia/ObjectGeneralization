@@ -193,6 +193,13 @@ public class InterfaceComposer {
 				return false;
 			return true;
 		}
+
+		@Override
+		public String toString() {
+			return "Interface " + name;
+		}
+		
+		
 		
 		
 	}

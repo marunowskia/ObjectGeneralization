@@ -11,6 +11,7 @@ import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefi
 import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableValueGraph;
 import com.google.common.graph.ValueGraph;
+import com.google.common.io.Files;
 
 public class InterfaceDefinitionConstraintSolver { 
 
@@ -37,6 +38,7 @@ public class InterfaceDefinitionConstraintSolver {
 				});
 				
 				result.include(identicalInterface);
+				InterfaceComposer.outputInterfaces(result.getFinalDefinitions(), Files.createTempDir());
 			});
 		}
 		return result.getFinalDefinitions();

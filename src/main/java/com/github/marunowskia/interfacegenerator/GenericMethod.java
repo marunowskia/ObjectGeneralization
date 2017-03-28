@@ -49,5 +49,12 @@ public class GenericMethod {
 		return true;
 	}
 
+	@Override
+	public String toString() {
+		return "GenericMethod [methodSignature=" + methodSignature + "]";
+	}
+	
+	
+
 	
 }

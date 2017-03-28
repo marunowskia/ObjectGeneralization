@@ -17,14 +17,9 @@ public class Result {
 
 	public void include(InterfaceDefinition incoming) {
 		updateReturnTypes(incoming);
-
 		checkForTotalOverlap(incoming);
-		if(checkForPassthroughInterface(incoming)) return;
-		
+		if(!checkForPassthroughInterface(incoming)) return;
 		checkForOverlap(incoming);
-//		checkForSplitInterfaces();
-//		checkForDuplicates();
-
 		finalDefinitions.add(incoming);
 		updateAllReturnTypes();
 	}
@@ -38,10 +33,10 @@ public class Result {
 				incomingExtendedBy.getMustExtend().add(incomingExtends);
 			});
 			finalDefinitions.remove(incoming);
-			return true;
+			return false;
 		}
 		
-		return false;
+		return true;
 	}
 	
 	private void checkForTotalOverlap(InterfaceDefinition incoming) {
@@ -63,13 +58,10 @@ public class Result {
 		Set<InterfaceDefinition> overlapResolutions = new HashSet<>();
 		for(InterfaceDefinition existingInterface : finalDefinitions) {
 			
-			if(CollectionUtils.isEmpty(newInterface.getMethodSignatures())) return; // This introduced undesirable dependence of the final outcome on the order that input got passed in. 
-			
 			Set<GenericMethod> overlap = getIntersection(newInterface, existingInterface);
-
 			if(CollectionUtils.isNotEmpty(overlap)) {
 
-				if(CollectionUtils.isSubCollection(newInterface.getMethodSignatures(), overlap)) {
+				if(CollectionUtils.isSubCollection(getAllMethods(existingInterface), getAllMethods(newInterface))) {
 					existingInterface.getExtendedBy().addAll(newInterface.getExtendedBy());
 					newInterface.getMustExtend().add(existingInterface);
 					newInterface.getMethodSignatures().removeAll(overlap);
@@ -95,31 +87,20 @@ public class Result {
 				existingInterface.getMethodSignatures().removeAll(overlap);
 				existingInterface.getMustExtend().add(sharedMethodInterface);				
 			}
-		}		
-		finalDefinitions.addAll(overlapResolutions);
+		}
+		overlapResolutions.forEach(this::checkForTotalOverlap);
+		overlapResolutions.stream().filter(this::checkForPassthroughInterface).forEach(finalDefinitions::add);
 	}
 
 	private volatile int interfaceCounter = 1;
 	private String selectNameForSharedInterface(InterfaceDefinition newInterface, InterfaceDefinition existingInterface) {
-		return "ICom" + interfaceCounter;
-//		String commonPrefix = StringUtils.getCommonPrefix(newInterface.getName(), existingInterface.getName()); // TODO: Come up with a clever way to auto-name interfaces
-//		String remainingNew = StringUtils.substringAfter(newInterface.getName(), commonPrefix);
-//		String remainingOld = StringUtils.substringAfter(existingInterface.getName(), commonPrefix);
-//
-//		String selectedName;
-//		if(remainingNew.compareTo(remainingOld) < 0) {
-//			selectedName = commonPrefix + "_" + remainingNew + "_" + remainingOld;
-//		}
-//		else {
-//			selectedName = commonPrefix + "_" + remainingOld + "_" + remainingNew;
-//		}
-//		return selectedName;
+		return "I" + interfaceCounter++;
 	}
 
 	private void updateAllReturnTypes() {
 		Map<String, InterfaceDefinition> implementorMap = createImplementorMap();
 		finalDefinitions.forEach(existing -> {
-			updateReturnTypes(existing, implementorMap);
+			updateReturnTypes(existing, implementorMap); 
 		});
 	}
 	
@@ -129,14 +110,23 @@ public class Result {
 	}
 	
 	private void updateReturnTypes(InterfaceDefinition incoming, Map<String, InterfaceDefinition> implementorMap) {
-		incoming.getMethodSignatures().forEach(sig -> sig.updateMethodSignature(implementorMap));
+		Set<GenericMethod> oldTypes = new HashSet<>(incoming.getMethodSignatures());
+		incoming.getMethodSignatures().clear();
+		
+		// We change the value used to compute equals and hash. Big nono! Should probably fix this ick.
+		oldTypes.forEach(sig -> sig.updateMethodSignature(implementorMap));
+		incoming.getMethodSignatures().addAll(oldTypes);
 	}
 
 	private Map<String, InterfaceDefinition> createImplementorMap() {
 		Map<String, InterfaceDefinition> implementorMap = new HashMap<>();
 		finalDefinitions.forEach(definition -> {
 			definition.getImplementedBy().forEach(implementor -> {
-				implementorMap.put(implementor, definition);
+				implementorMap.put(
+						StringUtils.substringAfterLast(
+								implementor
+								, ".")
+						, definition);
 			});
 		});
 		return implementorMap;
@@ -159,48 +149,4 @@ public class Result {
 	public Set<InterfaceDefinition> getFinalDefinitions() {
 		return finalDefinitions;
 	}
-	
-	//	public void collapse() {
-	//		// An interface may recombine with another interface IFF the resultant structure
-	//		// does not violate the ability for each type in "implementingTypes" to implement the recombined interface.
-	//
-	//		// This occurs in two scenarios:
-	//
-	//		// ========================================
-	//		// 1) If interfaces A, B are under consideration, A,B can be merged if the following two sets are equivalent:
-	//		//          Set 1: {type|type extends A or type implements A}
-	//		//          Set 2: {type|type extends B or type implements B}
-	//		// ========================================
-	//
-	//		HashMap<InterfaceDefinition, InterfaceDefinition> replacementPairs = new HashMap<>();
-	//		for(int a=0; a<structureContents.size(); a++) {
-	//			InterfaceDefinition interfaceA = structureContents.get(a);
-	//			List<String> extendsOrImplementsA = implementingTypes.getOrDefault(interfaceA, new ArrayList<String>());
-	//			if(!isEmpty(extendsOrImplementsA)) {
-	//				for(int b=a+1; b<structureContents.size(); b++) {
-	//					InterfaceDefinition interfaceB = structureContents.get(b);
-	//					List<String> extendsOrImplementsB = implementingTypes.getOrDefault(interfaceB, new ArrayList<String>());
-	//					if(isEqualCollection(extendsOrImplementsA, extendsOrImplementsB)) {
-	//						replacementPairs.put(interfaceA, interfaceB);
-	//					}
-	//				}
-	//			}
-	//		}
-	//		replaceAll(replacementPairs);
-	//		replacementPairs.clear();
-	//
-	//		// ========================================
-	//		// 2) If interfaces A, B are under consideration, then A only extends B, and A declares no additional methods
-	//		// ========================================
-	//		for(InterfaceDefinition definition : structureContents) {
-	//			if(size(definition.getMustExtend()) == 1) {
-	//				if(isEmpty(definition.getMethodSignatures())) {
-	//					replacementPairs.put(
-	//							definition, 
-	//							CollectionUtils.extractSingleton(definition.getMustExtend()));
-	//				}
-	//			}
-	//		}
-	//		replaceAll(replacementPairs);
-	//	}
 }
