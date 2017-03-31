@@ -36,6 +36,10 @@ public class InterfaceComposer {
 	public static void outputInterfaces(Collection<InterfaceDefinition> requiredInterfaces, File parentDirectory) {
 		
 		requiredInterfaces.forEach(def -> {
+			if(StringUtils.isBlank(def.pkg)) {
+				def.pkg = "defaultpackage";
+			}
+			
 			Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\.")).resolve(def.name);
 			System.out.println(outputPath);
 		});
