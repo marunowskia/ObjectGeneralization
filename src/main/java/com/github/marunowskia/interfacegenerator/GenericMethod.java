@@ -18,11 +18,12 @@ public class GenericMethod {
 	private Map<String, String> classToFullyQualifiedClassMap;
 	private String fullyQualifiedTypeString;
 	private String methodSignature;
+	private String returnTypeString;
 	private MethodDeclaration originalDeclaration;
 	
-	public void updateMethodSignature(Map<String, InterfaceDefinition> implementorMap) {
-		String updatedType = TypeUpdateUtility.updateType(fullyQualifiedTypeString, implementorMap);
-		methodSignature = "public " + updatedType + " " + originalDeclaration.getName() + "()"; 	
+	public synchronized void updateMethodSignature(Map<String, InterfaceDefinition> implementorMap) {
+		returnTypeString = TypeUpdateUtility.updateType(fullyQualifiedTypeString, implementorMap);
+		methodSignature = "public " + returnTypeString + " " + originalDeclaration.getName() + "()"; 	
 	}
 	
 	public void setOriginalDeclaration(MethodDeclaration original, Map<String, String> classToFullyQualifiedClassMap) {
