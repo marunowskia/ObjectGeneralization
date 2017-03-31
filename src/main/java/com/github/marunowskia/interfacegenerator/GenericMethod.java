@@ -1,26 +1,45 @@
 package com.github.marunowskia.interfacegenerator;
 
 import java.util.Map;
+import java.util.StringTokenizer;
 
+import org.apache.commons.lang3.StringUtils;
+
+import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefinition;
 
 import lombok.Getter;
 import lombok.Setter;
 
-@Getter @Setter
+@Getter
 public class GenericMethod {
 
+	private Map<String, String> classToFullyQualifiedClassMap;
+	private String fullyQualifiedTypeString;
 	private String methodSignature;
 	private MethodDeclaration originalDeclaration;
 	
 	public void updateMethodSignature(Map<String, InterfaceDefinition> implementorMap) {
-		String updatedType = TypeUpdateUtility.updateType(originalDeclaration.getType().toStringWithoutComments(), implementorMap);
+		String updatedType = TypeUpdateUtility.updateType(fullyQualifiedTypeString, implementorMap);
 		methodSignature = "public " + updatedType + " " + originalDeclaration.getName() + "()"; 	
 	}
 	
-	public void setOriginalDeclaration(MethodDeclaration original) {
+	public void setOriginalDeclaration(MethodDeclaration original, Map<String, String> classToFullyQualifiedClassMap) {
 		this.originalDeclaration = original;
+		this.classToFullyQualifiedClassMap = classToFullyQualifiedClassMap;
+		this.fullyQualifiedTypeString = "";
+		String originalTypeString = originalDeclaration.getType().toStringWithoutComments();
+		
+		String[] subtypes = originalTypeString.split("[^A-Za-z_0-9$]+");
+		for(int a=0; a<subtypes.length; a++) {
+			String originalSubtype = subtypes[a];
+			fullyQualifiedTypeString += StringUtils.substringBefore(originalTypeString, originalSubtype);
+			fullyQualifiedTypeString += classToFullyQualifiedClassMap.getOrDefault(originalSubtype, originalSubtype);
+			originalTypeString = StringUtils.substringAfter(originalTypeString, originalSubtype);
+		}
+		fullyQualifiedTypeString += originalTypeString;
+		
 		updateMethodSignature(null);
 	}
 

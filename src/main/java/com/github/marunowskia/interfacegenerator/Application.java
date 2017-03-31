@@ -107,7 +107,7 @@ public class Application {
 								.map(PackageDeclaration::getName)
 								.map(Object::toString)
 								.orElse("");
-
+						
 						String typeName = type.getName();
 						classToCompilationMap.put(packagePath + "." + typeName, fileContents);
 						typeToTypeDeclaration.put(packagePath + "." + typeName, type);
@@ -137,7 +137,7 @@ public class Application {
 										String key = requestingTypePath + "|" + returnTypePath;
 
 										GenericMethod newDeclaration = new GenericMethod();
-										newDeclaration.setOriginalDeclaration(method);
+										newDeclaration.setOriginalDeclaration(method, classToPackageMap);
 										
 										List<GenericMethod> methodList = requestReturnTypeMethods.getOrDefault(key, Lists.newArrayList());
 										requestReturnTypeMethods.put(key, methodList);
