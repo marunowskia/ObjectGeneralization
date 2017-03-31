@@ -48,7 +48,7 @@ public class TypeUpdateUtility {
 		StringBuilder resultBuilder = new StringBuilder();
 		resultBuilder.append(outerComponent);
 		if(type.matches(".+<.*>")) {
-			String innerComponent =  substringBeforeLast(substringAfter(type, "<"), ">");
+			String innerComponent =  getGenericComponent(type);
 			innerComponent = updateGenericList(innerComponent, replacements);
 			resultBuilder	.append('<')
 							.append(innerComponent)
@@ -58,6 +58,10 @@ public class TypeUpdateUtility {
 //		System.out.printf("Replacement for %s: %s\n", type, result);
 		
 		return result;
+	}
+	
+	public static String getGenericComponent(String type) {
+		return substringBeforeLast(substringAfter(type, "<"), ">");
 	}
 	
 	public static String updateGenericList(String genericList, Map<String, InterfaceDefinition> replacements) {
