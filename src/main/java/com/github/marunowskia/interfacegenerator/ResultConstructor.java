@@ -56,8 +56,6 @@ public class ResultConstructor {
 		return allSharedMethods;
 	}
 
-	
-
 	private void renameSingleMethodInterfaces(Set<InterfaceDefinition> allSharedMethods) {
 		allSharedMethods.forEach(def -> {
 			if(def.getMethodSignatures().size()==1 && def.getName().startsWith("IFace")) {
@@ -92,19 +90,14 @@ public class ResultConstructor {
 						if(!duplicateInterface.isPresent()) {
 							InterfaceDefinition intersectionElement = createCommonInterface(originalInterface, fromPreviousIteration);
 							if(intersectionElement!=null) {
-//								System.out.println("Adding Interface");
 								intersection.add(intersectionElement);
 								allCommonalities.add(intersectionElement);
 							}
 						}
-//						else {
-//							duplicateInterface.get().getImplementedBy().addAll(originalInterface.getImplementedBy());
-//						}
 					}
 				}
 			}
 
-			
 			addedInPreviousIteration = intersection;
 		} while(allCommonalities.size() > startingSize);
 		
@@ -117,7 +110,6 @@ public class ResultConstructor {
 
 		if(CollectionUtils.isEqualCollection(originalInterface.getMethodSignatures(), fromPreviousIteration.getMethodSignatures())) {
 			// This should never happen
-			log.error("TWO INTERFACES SHOULD NEVER BE USED TO CREATE A COMMON INTERFACE IF THEY HAVE IDENTICAL METHODS");
 			System.exit(1);
 		}
 		
@@ -149,7 +141,6 @@ public class ResultConstructor {
 					if(CollectionUtils.isSubCollection(interfaceAMethods, interfaceBMethods)) {
 						// A only declares methods which are also present in B. Therefore, it is valid for B to extend A
 						if(!getAllSuperTypes(interfaceA).anyMatch(interfaceB::equals)) {
-								//.noneMatch(interfaceB::equals)) { // Prevents cycles when two sets are equal
 							interfaceB.getMustExtend().add(interfaceA);
 							interfaceA.getExtendedBy().add(interfaceB);
 							interfaceB.getMethodSignatures().removeAll(interfaceAMethods);
@@ -175,10 +166,6 @@ public class ResultConstructor {
 	public void updateAllMethodSignatures(Collection<InterfaceDefinition> originalInterfaces) {
 		Map<String, InterfaceDefinition> classToInterfaceMap = getClassToInterfaceMap(originalInterfaces);
 		for(InterfaceDefinition originalInterface : originalInterfaces) {
-			if(originalInterface.name.equals("ICreateDeviceGroup")) {
-				System.out.println("Updating ICreateDeviceGroup");
-			}
-
 			for(GenericMethod originalInterfaceMethod : originalInterface.getMethodSignatures()) {
 				originalInterfaceMethod.updateMethodSignature(classToInterfaceMap);
 			}
@@ -189,10 +176,10 @@ public class ResultConstructor {
 
 		Set<InterfaceDefinition> toRemove = new HashSet<>();
 		Set<InterfaceDefinition> toInsert = new HashSet<>();
-		for(InterfaceDefinition extended : forThisInterface.mustExtend) {
-			for(InterfaceDefinition otherExtended : forThisInterface.mustExtend) {
-				if(extended != otherExtended) {
-					if(getAllSuperTypes(otherExtended).anyMatch(supertype -> supertype == extended)) {
+		for (InterfaceDefinition extended : forThisInterface.mustExtend) {
+			for (InterfaceDefinition otherExtended : forThisInterface.mustExtend) {
+				if (extended != otherExtended) {
+					if (getAllSuperTypes(otherExtended).anyMatch(supertype -> supertype == extended)) {
 						toRemove.add(extended);
 					}
 				}
@@ -201,37 +188,17 @@ public class ResultConstructor {
 		forThisInterface.getMustExtend().removeAll(toRemove);
 	}
 	
-	
 	public boolean isPassthrough(InterfaceDefinition passthrough) {
-		return 
-				passthrough.getMustExtend().size() == 1
+		return  passthrough.getMustExtend().size() == 1
 				&&
 				passthrough.getMethodSignatures().isEmpty();
 	}
 	
 	public void flattenHierarchy(InterfaceDefinition passthrough) {
 		
-		if(passthrough.getName().equals("ICreateDeviceGroup")) {
-			if (passthrough.getMethodSignatures().stream().map(GenericMethod::getMethodSignature).anyMatch(s->s.contains("Delete"))) {
-				System.out.println("IDeviceIdentifier");
-			}
-		}
-
-
-		if (passthrough.getName().contains("IArrayOfDeviceIdentifierCollection")) {
-			if(passthrough.pkg.contains("devicegroup")) {
-				System.out.print("break");
-			}
-		}
-
-		
 		if(isPassthrough(passthrough)) {
 
-			if (passthrough.getName().contains("IArrayOfExtendedAttributesObj")) {
-				System.out.print("break");
-			}
-			
-			InterfaceDefinition passthroughSuperInterface = CollectionUtils.extractSingleton(passthrough.getMustExtend()); 
+			InterfaceDefinition passthroughSuperInterface = CollectionUtils.extractSingleton(passthrough.getMustExtend());
 			
 			passthroughSuperInterface.getDependencies().addAll(passthrough.getDependencies());
 			passthroughSuperInterface.getImplementedBy().addAll(passthrough.getImplementedBy());
@@ -248,10 +215,7 @@ public class ResultConstructor {
 			passthrough.getExtendedBy().forEach(newSubInterface -> newSubInterface.getMustExtend().add(passthroughSuperInterface));
 			passthrough.getMustExtend().clear();;
 			passthrough.getExtendedBy().clear();
-
-			
 		}
-		
 	}
 	
 	private void eraseOrphanInterfaces(Set<InterfaceDefinition> interfaceDefinitions) {
@@ -265,14 +229,12 @@ public class ResultConstructor {
 			interfaceDefinitions.forEach(iface -> iface.getExtendedBy().removeAll(toRemove));
 			interfaceDefinitions.removeAll(toRemove);
 		}
-
 	}
 
 	public static Stream<InterfaceDefinition> getAllSuperTypes(InterfaceDefinition ofThisInterface) {
 		return Stream.concat(	ofThisInterface.getMustExtend().stream(), 
 								ofThisInterface.getMustExtend().stream().flatMap(ext->getAllSuperTypes(ext)));
 	}
-
 
 	public Map<String, InterfaceDefinition> getClassToInterfaceMap(Collection<InterfaceDefinition> originalInterfaces) {
 		// implementor map can be built directly from originalInterfaces. 
@@ -288,7 +250,4 @@ public class ResultConstructor {
 		});
 		return result;
 	}
-	
-	
-
 }
