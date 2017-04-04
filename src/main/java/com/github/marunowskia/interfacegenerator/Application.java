@@ -6,12 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -69,16 +64,18 @@ public class Application {
 
 
 		MutableValueGraph<String, List<GenericMethod>> nameGraph = com.google.common.graph.ValueGraphBuilder.directed().build();
-		Hashtable<String, TypeDeclaration> typeToTypeDeclaration = new Hashtable<>();
+		HashMap<String, TypeDeclaration> typeToTypeDeclaration = new HashMap<>();
 
+		HashMap<String, CompilationUnit> classToCompilationMap = new HashMap<>();
 		allJavaFiles.forEach(file -> {
 			try {
 
 
 				CompilationUnit fileContents = JavaParser.parse(file);
+				fileContents.setData(file);
 
 				Hashtable<String, String> classToPackageMap = new Hashtable<>();
-				Hashtable<String, CompilationUnit> classToCompilationMap = new Hashtable<>();
+
 
 				if(fileContents.getImports()!=null) {
 					fileContents.getImports().forEach(importDecl -> {
@@ -93,7 +90,7 @@ public class Application {
 					});
 				}
 
-
+				HashMap<String, File> originalFiles = new HashMap<>();
 				Hashtable<String, List<GenericMethod>> requestReturnTypeMethods = new Hashtable<>();
 				if(Objects.nonNull(fileContents.getTypes())) {
 					fileContents.getTypes().forEach(type -> {
@@ -108,6 +105,7 @@ public class Application {
 								.map(Object::toString)
 								.orElse("");
 						
+
 						String typeName = type.getName();
 						classToCompilationMap.put(packagePath + "." + typeName, fileContents);
 						typeToTypeDeclaration.put(packagePath + "." + typeName, type);
@@ -169,33 +167,6 @@ public class Application {
 
 		File outputDirectory = Files.createTempDir();
 		System.out.println(outputDirectory.getAbsolutePath());
-		InterfaceComposer.generateAndExportInterfaces(nameGraph, outputDirectory);
-		//		int a=0;
-		//		while(!nameGraph.nodes().isEmpty()) {
-		//			a++;
-		//			List<String> leafNodes = getLeafNodes(nameGraph);
-		//
-		//			final int b=a;
-		//			// Convert all the non-frozen leaf classes into frozen classes.
-		//			leafNodes.forEach(str -> {
-		//				System.out.println(Strings.repeat("\t",  b) + b + str);
-		//				TypeDeclaration decl = typeToTypeDeclaration.get(str);
-		//				if(decl!=null) {
-		//					if(decl.getMembers()!=null) {
-		////						decl.getMembers().forEach(member -> {System.out.println("member: " + member);});
-		//					}
-		////					System.out.println(Strings.repeat("\t",  b) + decl.toString());
-		//				}
-		//				nameGraph.removeNode(str);
-		//			});
-		//		}
-	}
-
-	private static List<String> getLeafNodes(MutableValueGraph<String, List<String>> graph) {
-		return graph
-				.nodes()
-				.stream()
-				.filter(s -> graph.successors(s).isEmpty())
-				.collect(Collectors.toList());
+		InterfaceComposer.generateAndExportInterfaces(nameGraph, outputDirectory, classToCompilationMap);
 	}
 }

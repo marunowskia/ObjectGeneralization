@@ -44,7 +44,11 @@ public class TypeUpdateUtility {
 		String outerComponent = substringBefore(type, "<");
 //		System.out.println("Replacement for " + type + ": " + replacements.get(type));
 		outerComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getName()).orElse(outerComponent);
-		
+		switch(outerComponent) {
+			case "int" : outerComponent = "Integer"; break;
+			case "long" : outerComponent = "Long"; break;
+			case "boolean" : outerComponent = "Boolean"; break;
+		}
 		StringBuilder resultBuilder = new StringBuilder();
 		resultBuilder.append(outerComponent);
 		if(type.matches(".+<.*>")) {
