@@ -20,17 +20,45 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ResultConstructor {
+	
+	public static void main(String args[]) {
+		Application.main(args);
+	}
 
+	public static int numIterations = 0;
 	public Set<InterfaceDefinition> buildResult(Collection<InterfaceDefinition> originalInterfaces) {
+		System.out.printf("Number of iterations: %s\tNumber of interfaces in this layer: %s\n", numIterations++, originalInterfaces.size());
+
 		if(CollectionUtils.isEmpty(originalInterfaces)) {
 			return new HashSet<>();
 		}  
+
 		updateAllMethodSignatures(originalInterfaces);
+
 		Set<InterfaceDefinition> allSharedMethods = getAllCommonalities(originalInterfaces);
 		addAllValidExtends(allSharedMethods);
+
+
 		allSharedMethods.forEach(this::pruneRedundantSuperclasses);
+		allSharedMethods.forEach(this::flattenHierarchy);
+		eraseOrphanInterfaces(allSharedMethods);
+
+
+		renameSingleMethodInterfaces(allSharedMethods);
+		updateAllMethodSignatures(allSharedMethods);
+
+
+		allSharedMethods.forEach(this::pruneRedundantSuperclasses);
+		allSharedMethods.forEach(this::flattenHierarchy);
+		eraseOrphanInterfaces(allSharedMethods);
 		
-		
+
+		return allSharedMethods;
+	}
+
+	
+
+	private void renameSingleMethodInterfaces(Set<InterfaceDefinition> allSharedMethods) {
 		allSharedMethods.forEach(def -> {
 			if(def.getMethodSignatures().size()==1 && def.getName().startsWith("IFace")) {
 				
@@ -42,18 +70,17 @@ public class ResultConstructor {
 				def.setName(newName);
 			}
 		});
-		
-		updateAllMethodSignatures(allSharedMethods);
-		return allSharedMethods;
 	}
 
 	private Set<InterfaceDefinition> getAllCommonalities(Collection<InterfaceDefinition> originalInterfaces) {
+		System.out.println("getAllCommonalities");
 		Set<InterfaceDefinition> allCommonalities = new HashSet<>();
 		allCommonalities.addAll(originalInterfaces);
 
 		Collection<InterfaceDefinition> addedInPreviousIteration = originalInterfaces;
 		int startingSize = 0;
 		do {
+			System.out.println("Building commonalities");
 			startingSize = allCommonalities.size();
 			Collection<InterfaceDefinition> intersection = new ArrayList<>();
 			for(InterfaceDefinition originalInterface : originalInterfaces) {
@@ -65,21 +92,23 @@ public class ResultConstructor {
 						if(!duplicateInterface.isPresent()) {
 							InterfaceDefinition intersectionElement = createCommonInterface(originalInterface, fromPreviousIteration);
 							if(intersectionElement!=null) {
-								log.info("Adding interface {}", intersectionElement);
+//								System.out.println("Adding Interface");
 								intersection.add(intersectionElement);
 								allCommonalities.add(intersectionElement);
 							}
 						}
-						else {
-							duplicateInterface.get().getImplementedBy().addAll(originalInterface.getImplementedBy());
-						}
+//						else {
+//							duplicateInterface.get().getImplementedBy().addAll(originalInterface.getImplementedBy());
+//						}
 					}
 				}
 			}
 
+			
 			addedInPreviousIteration = intersection;
 		} while(allCommonalities.size() > startingSize);
-		return allCommonalities;
+		
+		return new HashSet<InterfaceDefinition>(allCommonalities);
 	}
 	
 	private int interfaceCounter = 1;
@@ -104,14 +133,22 @@ public class ResultConstructor {
 	}
 
 	private void addAllValidExtends(Collection<InterfaceDefinition> interfaces) {
+		System.out.println("addAllValidExtends");
+		HashMap<InterfaceDefinition, Collection<GenericMethod>> allMethods = new HashMap<>();
 		for(InterfaceDefinition interfaceA : interfaces) {
-			Collection<GenericMethod> interfaceAMethods = getAllMethods(interfaceA);
+			Collection<GenericMethod> interfaceAMethods = allMethods.getOrDefault(interfaceA, interfaceA.getAllMethods());
+			if (!allMethods.containsKey(interfaceA)) {
+				allMethods.put(interfaceA, interfaceAMethods);
+			}
+		}
+		for(InterfaceDefinition interfaceA : interfaces) {
 			for(InterfaceDefinition interfaceB : interfaces) {
+				Collection<GenericMethod> interfaceAMethods = allMethods.get(interfaceA);
 				if(interfaceA!=interfaceB) {
-					Collection<GenericMethod> interfaceBMethods = getAllMethods(interfaceB);
+					Collection<GenericMethod> interfaceBMethods = allMethods.get(interfaceB);
 					if(CollectionUtils.isSubCollection(interfaceAMethods, interfaceBMethods)) {
 						// A only declares methods which are also present in B. Therefore, it is valid for B to extend A
-						if(!getAllSuperTypes(interfaceA).collect(Collectors.toSet()).contains(interfaceB)) {
+						if(!getAllSuperTypes(interfaceA).anyMatch(interfaceB::equals)) {
 								//.noneMatch(interfaceB::equals)) { // Prevents cycles when two sets are equal
 							interfaceB.getMustExtend().add(interfaceA);
 							interfaceA.getExtendedBy().add(interfaceB);
@@ -121,16 +158,9 @@ public class ResultConstructor {
 				}
 			}	
 		}
+		System.out.println("done with addAllValidExtends");
 	}
 
-
-	private Set<GenericMethod> getAllMethods(InterfaceDefinition from) {
-		// Will break on cyclic dependencies. But so will Java itself...
-		Set<GenericMethod> result = new HashSet<GenericMethod>();
-		result.addAll(from.getMethodSignatures());
-		from.getMustExtend().forEach(extended->result.addAll(getAllMethods(extended)));
-		return result;
-	}
 
 	private Set<GenericMethod> getIntersection(InterfaceDefinition newInterface, InterfaceDefinition oldInterface) {
 		Set<GenericMethod> oldMethods = new HashSet<>(oldInterface.getMethodSignatures()); // Recompute hashes... This should be avoided. Currently this is just a horrible hack.
@@ -145,6 +175,10 @@ public class ResultConstructor {
 	public void updateAllMethodSignatures(Collection<InterfaceDefinition> originalInterfaces) {
 		Map<String, InterfaceDefinition> classToInterfaceMap = getClassToInterfaceMap(originalInterfaces);
 		for(InterfaceDefinition originalInterface : originalInterfaces) {
+			if(originalInterface.name.equals("ICreateDeviceGroup")) {
+				System.out.println("Updating ICreateDeviceGroup");
+			}
+
 			for(GenericMethod originalInterfaceMethod : originalInterface.getMethodSignatures()) {
 				originalInterfaceMethod.updateMethodSignature(classToInterfaceMap);
 			}
@@ -152,7 +186,9 @@ public class ResultConstructor {
 	}
 
 	public void pruneRedundantSuperclasses(InterfaceDefinition forThisInterface) {
-		List<InterfaceDefinition> toRemove = new ArrayList<>();
+
+		Set<InterfaceDefinition> toRemove = new HashSet<>();
+		Set<InterfaceDefinition> toInsert = new HashSet<>();
 		for(InterfaceDefinition extended : forThisInterface.mustExtend) {
 			for(InterfaceDefinition otherExtended : forThisInterface.mustExtend) {
 				if(extended != otherExtended) {
@@ -164,10 +200,77 @@ public class ResultConstructor {
 		}
 		forThisInterface.getMustExtend().removeAll(toRemove);
 	}
+	
+	
+	public boolean isPassthrough(InterfaceDefinition passthrough) {
+		return 
+				passthrough.getMustExtend().size() == 1
+				&&
+				passthrough.getMethodSignatures().isEmpty();
+	}
+	
+	public void flattenHierarchy(InterfaceDefinition passthrough) {
+		
+		if(passthrough.getName().equals("ICreateDeviceGroup")) {
+			if (passthrough.getMethodSignatures().stream().map(GenericMethod::getMethodSignature).anyMatch(s->s.contains("Delete"))) {
+				System.out.println("IDeviceIdentifier");
+			}
+		}
 
-	public Stream<InterfaceDefinition> getAllSuperTypes(InterfaceDefinition ofThisInterface) {
+
+		if (passthrough.getName().contains("IArrayOfDeviceIdentifierCollection")) {
+			if(passthrough.pkg.contains("devicegroup")) {
+				System.out.print("break");
+			}
+		}
+
+		
+		if(isPassthrough(passthrough)) {
+
+			if (passthrough.getName().contains("IArrayOfExtendedAttributesObj")) {
+				System.out.print("break");
+			}
+			
+			InterfaceDefinition passthroughSuperInterface = CollectionUtils.extractSingleton(passthrough.getMustExtend()); 
+			
+			passthroughSuperInterface.getDependencies().addAll(passthrough.getDependencies());
+			passthroughSuperInterface.getImplementedBy().addAll(passthrough.getImplementedBy());
+			passthrough.getImplementedBy().clear();
+			
+			HashSet<InterfaceDefinition> newExtendedBy = new HashSet<>();
+			newExtendedBy.addAll(passthrough.getExtendedBy());
+			newExtendedBy.addAll(passthroughSuperInterface.getExtendedBy());
+			passthroughSuperInterface.setExtendedBy(newExtendedBy);
+
+			System.out.println("new ExtendedBy size: " + newExtendedBy.size());
+
+			passthrough.getExtendedBy().forEach(newSubInterface -> newSubInterface.getMustExtend().remove(passthrough));
+			passthrough.getExtendedBy().forEach(newSubInterface -> newSubInterface.getMustExtend().add(passthroughSuperInterface));
+			passthrough.getMustExtend().clear();;
+			passthrough.getExtendedBy().clear();
+
+			
+		}
+		
+	}
+	
+	private void eraseOrphanInterfaces(Set<InterfaceDefinition> interfaceDefinitions) {
+		Set<InterfaceDefinition> toRemove = 
+				interfaceDefinitions.stream()
+									.filter(orphan -> orphan.getExtendedBy().isEmpty())
+									.filter(orphan -> orphan.getImplementedBy().isEmpty())
+									.collect(Collectors.toSet());
+
+		if(!toRemove.isEmpty()) {
+			interfaceDefinitions.forEach(iface -> iface.getExtendedBy().removeAll(toRemove));
+			interfaceDefinitions.removeAll(toRemove);
+		}
+
+	}
+
+	public static Stream<InterfaceDefinition> getAllSuperTypes(InterfaceDefinition ofThisInterface) {
 		return Stream.concat(	ofThisInterface.getMustExtend().stream(), 
-								ofThisInterface.getMustExtend().stream().flatMap(this::getAllSuperTypes));
+								ofThisInterface.getMustExtend().stream().flatMap(ext->getAllSuperTypes(ext)));
 	}
 
 
@@ -185,5 +288,7 @@ public class ResultConstructor {
 		});
 		return result;
 	}
+	
+	
 
 }
