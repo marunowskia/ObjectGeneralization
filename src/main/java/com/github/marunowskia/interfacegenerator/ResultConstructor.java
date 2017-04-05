@@ -51,9 +51,27 @@ public class ResultConstructor {
 		allSharedMethods.forEach(this::pruneRedundantSuperclasses);
 		allSharedMethods.forEach(this::flattenHierarchy);
 		eraseOrphanInterfaces(allSharedMethods);
+
+		updateDependencies(allSharedMethods);
 		
 
 		return allSharedMethods;
+	}
+
+	private void updateDependencies(Collection<InterfaceDefinition> allSharedMethods) {
+		Map<String, InterfaceDefinition> implementorToInterfaceMap = getClassToInterfaceMap(allSharedMethods);
+
+		allSharedMethods.forEach(iface ->{
+			iface.getDependencies().clear();
+			iface.getMethodSignatures().forEach(method -> {
+				method.getFullyQualifiedDependencies().forEach(fullyQualifiedDependency -> {
+					Optional.ofNullable(implementorToInterfaceMap.get(fullyQualifiedDependency)).ifPresent(implemented -> {
+						iface.getDependencies().add(implemented.getPkg() + "." + implemented.getName());
+					});
+				});
+
+			});
+		});
 	}
 
 	private void renameSingleMethodInterfaces(Set<InterfaceDefinition> allSharedMethods) {
@@ -62,7 +80,7 @@ public class ResultConstructor {
 				
 				GenericMethod onlyMethod = CollectionUtils.extractSingleton(def.getMethodSignatures());
 				String newName = 
-						"I" 
+						"I"
 						+ String.join("", onlyMethod.getOriginalDeclaration().getType().toStringWithoutComments().replaceAll("[^A-Za-z_$0-9]", "_")) 
 						+ onlyMethod.getOriginalDeclaration().getName().substring(3);
 				def.setName(newName);
@@ -141,9 +159,11 @@ public class ResultConstructor {
 					if(CollectionUtils.isSubCollection(interfaceAMethods, interfaceBMethods)) {
 						// A only declares methods which are also present in B. Therefore, it is valid for B to extend A
 						if(!getAllSuperTypes(interfaceA).anyMatch(interfaceB::equals)) {
-							interfaceB.getMustExtend().add(interfaceA);
-							interfaceA.getExtendedBy().add(interfaceB);
-							interfaceB.getMethodSignatures().removeAll(interfaceAMethods);
+							if(!interfaceB.isRequired()) {
+								interfaceB.getMustExtend().add(interfaceA);
+								interfaceA.getExtendedBy().add(interfaceB);
+								interfaceB.getMethodSignatures().removeAll(interfaceAMethods);
+							}
 						}
 					}
 				}
@@ -189,7 +209,9 @@ public class ResultConstructor {
 	}
 	
 	public boolean isPassthrough(InterfaceDefinition passthrough) {
-		return  passthrough.getMustExtend().size() == 1
+		return  !passthrough.isRequired()
+				&&
+				passthrough.getMustExtend().size() == 1
 				&&
 				passthrough.getMethodSignatures().isEmpty();
 	}
@@ -200,7 +222,7 @@ public class ResultConstructor {
 
 			InterfaceDefinition passthroughSuperInterface = CollectionUtils.extractSingleton(passthrough.getMustExtend());
 			
-			passthroughSuperInterface.getDependencies().addAll(passthrough.getDependencies());
+//			passthroughSuperInterface.getDependencies().addAll(passthrough.getDependencies());
 			passthroughSuperInterface.getImplementedBy().addAll(passthrough.getImplementedBy());
 			passthrough.getImplementedBy().clear();
 			
@@ -223,7 +245,10 @@ public class ResultConstructor {
 				interfaceDefinitions.stream()
 									.filter(orphan -> orphan.getExtendedBy().isEmpty())
 									.filter(orphan -> orphan.getImplementedBy().isEmpty())
+									.filter(orphan -> !orphan.isRequired())
 									.collect(Collectors.toSet());
+
+
 
 		if(!toRemove.isEmpty()) {
 			interfaceDefinitions.forEach(iface -> iface.getExtendedBy().removeAll(toRemove));
@@ -232,7 +257,7 @@ public class ResultConstructor {
 	}
 
 	public static Stream<InterfaceDefinition> getAllSuperTypes(InterfaceDefinition ofThisInterface) {
-		return Stream.concat(	ofThisInterface.getMustExtend().stream(), 
+		return Stream.concat(	ofThisInterface.getMustExtend().stream(),
 								ofThisInterface.getMustExtend().stream().flatMap(ext->getAllSuperTypes(ext)));
 	}
 

@@ -18,6 +18,7 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.google.common.base.Charsets;
+import com.google.common.base.Strings;
 import com.google.common.reflect.ClassPath;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.ComparatorUtils;
@@ -36,10 +37,20 @@ import lombok.extern.slf4j.Slf4j;
 public class InterfaceComposer {
 
 	public static void generateAndExportInterfaces(ValueGraph<String, List<GenericMethod>> methodGraph,
-												   File outputDirectory, HashMap<String,CompilationUnit> originalSources) {
-		Set<InterfaceDefinition> result = InterfaceDefinitionConstraintSolver.buildResult(methodGraph);
-//		outputInterfaces(result, outputDirectory);
-		updateJavaSource(result, originalSources);
+												   File outputDirectory, HashMap<String,CompilationUnit> originalSources,
+                                                   boolean updateOriginalFiles) {
+        Set<String> relevantTypes = originalSources.keySet()
+                .stream()
+                .filter(name -> !name.endsWith("Response"))
+                .filter(name -> !name.endsWith("Response2"))
+                .collect(Collectors.toSet());
+		Set<InterfaceDefinition> result = InterfaceDefinitionConstraintSolver.buildResult(methodGraph, relevantTypes);
+
+		outputInterfaces(result, outputDirectory);
+
+		if(updateOriginalFiles) {
+		    updateJavaSource(result, originalSources);
+        }
 	}
 
 	public static void updateJavaSource(Collection<InterfaceDefinition> interfaces, HashMap<String,CompilationUnit> originalSources) {
@@ -63,9 +74,20 @@ public class InterfaceComposer {
                         }
 
                         typeToMustImplementMap.get(name).forEach(mustImplement -> {
+                            String fullyQualifiedPathToAdd = mustImplement.getPkg() + "." + mustImplement.getName();
+                            ClassOrInterfaceDeclaration classOrInterface = (ClassOrInterfaceDeclaration) typeDeclaration;
 
-                            ClassOrInterfaceType ifaceToAdd = new ClassOrInterfaceType(mustImplement.getPkg() + "." + mustImplement.getName());
-                            ((ClassOrInterfaceDeclaration) typeDeclaration).getImplements().add(ifaceToAdd);
+                            boolean alreadExists = classOrInterface.getImplements()
+                                    .stream()
+                                    .map(existing -> existing.getScope() + "." + existing.getName())
+                                    .anyMatch(fullyQualifiedPathToAdd::equals);
+
+                            boolean complicated = CollectionUtils.isNotEmpty(classOrInterface.getExtends());
+
+                            if(!alreadExists && !complicated) {
+                                ClassOrInterfaceType ifaceToAdd = new ClassOrInterfaceType(fullyQualifiedPathToAdd);
+                                ((ClassOrInterfaceDeclaration) typeDeclaration).getImplements().add(ifaceToAdd);
+                            }
                         });
                     }
                     if(CollectionUtils.isEmpty(((ClassOrInterfaceDeclaration) typeDeclaration).getImplements())) {
@@ -191,7 +213,9 @@ public class InterfaceComposer {
 		Set<String> dependencies = def.getDependencies();
 
 		builder	.append("import defaultpackage.*;\n")
-				.append("import java.util.Optional;\n\n");
+                .append("import java.util.Optional;\n")
+                .append("import java.util.Collections;\n\n");
+
 
 		dependencies.forEach(dependency -> {
 			builder.append("import ").append(dependency).append(";\n");
@@ -343,13 +367,9 @@ public class InterfaceComposer {
 	private static void addRequiredMethods(StringBuilder builder, InterfaceDefinition def) {
 
 		def.methodSignatures.forEach(method -> {
-				if (method.getReturnTypeString().contains("java.util.List")) {
-					builder.append("\tdefault ").append(method.getMethodSignature())
-							.append(" { return Collections.EMPTY_LIST;} \n\n");
-				} else {
-					builder.append("\tdefault ").append(method.getMethodSignature())
-							.append(" { return null;} \n\n");
-				}
+
+            builder .append("\tdefault ").append(method.getMethodSignature())
+                    .append(" { return "+generateDefaultReturnValue(method.getReturnTypeString())+";} \n\n");
 			}
 		);
 
@@ -358,8 +378,41 @@ public class InterfaceComposer {
 		}
 	}
 
+	private static String generateDefaultReturnValue(String returnType) {
+	    switch(returnType) {
+            case "int":
+            case "short":
+            case "long":
+            case "byte":
+            case "double":
+            case "float":
+                return "0";
+
+            case "char":
+                return "(char)0";
+
+            case "boolean":
+                return "false";
+        }
+        if(returnType.startsWith("java.util.List")) {
+	        return "Collections.EMPTY_LIST";
+        }
+        return "null";
+
+    }
+
 	private static void addOptionalWrappers(StringBuilder builder, InterfaceDefinition def) {
+
+
+
 		def.methodSignatures.forEach(method -> {
+		    String returnType = method.getFullyQualifiedTypeString();
+
+		    if(Arrays.asList("int","long","boolean","char","byte","double","float", "short","").contains(returnType)) {
+                return;// no reason to make optionals of something that can't be null!
+            }
+
+
 			String originalMethodName = method.getOriginalDeclaration().getNameExpr().toStringWithoutComments();
 			builder.append("\tpublic default Optional<? extends ").append(method.getReturnTypeString()).append("> o")
 					.append(StringUtils.capitalize(StringUtils.substringAfter(originalMethodName, "get")))
@@ -407,6 +460,9 @@ public class InterfaceComposer {
 		if(method.getReturnTypeString().contains("JAXBElement")) {
 		    boolean shouldReturnMissing = true;
 
+		    if(method.getReturnTypeString().startsWith("java")) {
+                shouldReturnMissing = false;
+            }
 		    try {
                 Collection<ClassPath.ClassInfo> javaLangClasses = ClassPath.from(ClassLoader.getSystemClassLoader()).getTopLevelClasses("java.lang");
                 if(javaLangClasses.stream().anyMatch(info -> info.getSimpleName().equals(returnType))) {
@@ -450,6 +506,7 @@ public class InterfaceComposer {
 	@Data
 	public static class InterfaceDefinition {
 
+	    public boolean required = false;
 		public String pkg;
 		public String name;
 		public Set<String> genericParameters = new HashSet<>();
@@ -553,6 +610,8 @@ public class InterfaceComposer {
 		public void setImplementedBy(Set<String> implementedBy) {
 			this.implementedBy = implementedBy;
 		}
+
+
 
 		@Override
 		public int hashCode() {

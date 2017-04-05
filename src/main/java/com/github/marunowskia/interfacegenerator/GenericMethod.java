@@ -1,6 +1,9 @@
 package com.github.marunowskia.interfacegenerator;
 
+import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringTokenizer;
 
 import org.apache.commons.lang3.StringUtils;
@@ -16,10 +19,12 @@ import lombok.Setter;
 public class GenericMethod {
 
 	private Map<String, String> classToFullyQualifiedClassMap;
+	private Set<String> fullyQualifiedDependencies = new HashSet<>();
 	private String fullyQualifiedTypeString;
 	private String methodSignature;
 	private String returnTypeString;
 	private MethodDeclaration originalDeclaration;
+
 	
 	public synchronized void updateMethodSignature(Map<String, InterfaceDefinition> implementorMap) {
 		returnTypeString = TypeUpdateUtility.updateType(fullyQualifiedTypeString, implementorMap);
@@ -33,10 +38,12 @@ public class GenericMethod {
 		String originalTypeString = originalDeclaration.getType().toStringWithoutComments();
 		
 		String[] subtypes = originalTypeString.split("[^A-Za-z_0-9$]+");
+		fullyQualifiedDependencies.clear();
 		for(int a=0; a<subtypes.length; a++) {
 			String originalSubtype = subtypes[a];
 			fullyQualifiedTypeString += StringUtils.substringBefore(originalTypeString, originalSubtype);
 			fullyQualifiedTypeString += classToFullyQualifiedClassMap.getOrDefault(originalSubtype, originalSubtype);
+			fullyQualifiedDependencies.add(classToFullyQualifiedClassMap.getOrDefault(originalSubtype, originalSubtype));
 			originalTypeString = StringUtils.substringAfter(originalTypeString, originalSubtype);
 		}
 		fullyQualifiedTypeString += originalTypeString;
