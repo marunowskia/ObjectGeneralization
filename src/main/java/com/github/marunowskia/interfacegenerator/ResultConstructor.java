@@ -225,6 +225,7 @@ public class ResultConstructor {
 				interfaceDefinitions.stream()
 									.filter(orphan -> orphan.getExtendedBy().isEmpty())
 									.filter(orphan -> orphan.getImplementedBy().isEmpty())
+									.filter(orphan -> !orphan.isRequired())
 									.collect(Collectors.toSet());
 
 		if(!toRemove.isEmpty()) {
