@@ -43,12 +43,8 @@ public class TypeUpdateUtility {
 		
 		String outerComponent = substringBefore(type, "<");
 //		System.out.println("Replacement for " + type + ": " + replacements.get(type));
-		outerComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getName()).orElse(outerComponent);
-		switch(outerComponent) {
-			case "int" : outerComponent = "Integer"; break;
-			case "long" : outerComponent = "Long"; break;
-			case "boolean" : outerComponent = "Boolean"; break;
-		}
+		outerComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getPkg() + "." + def.getName()).orElse(outerComponent);
+
 		StringBuilder resultBuilder = new StringBuilder();
 		resultBuilder.append(outerComponent);
 		if(type.matches(".+<.*>")) {
@@ -95,7 +91,7 @@ public class TypeUpdateUtility {
 		if(generic.startsWith("? extends ")) return "? extends " + updateType(substringAfter(generic, "? extends "), replacements);
 		
 		String outerComponent = substringBefore(generic, "<");
-		Optional<String> replacedOuterComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getName());
+		Optional<String> replacedOuterComponent = ofNullable(replacements.get(outerComponent.trim())).map(def -> def.getPkg() + "." + def.getName());
 		
 		if(replacedOuterComponent.isPresent()) {
 			// generic is a knowable type that can't be replaced with one of our interfaces
