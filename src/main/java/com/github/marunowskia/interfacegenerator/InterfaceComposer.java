@@ -417,6 +417,9 @@ public class InterfaceComposer {
 		if(method.getReturnTypeString().contains("JAXBElement")) {
 		    boolean shouldReturnMissing = true;
 
+		    if(method.getReturnTypeString().startsWith("java")) {
+                shouldReturnMissing = false;
+            }
 		    try {
                 Collection<ClassPath.ClassInfo> javaLangClasses = ClassPath.from(ClassLoader.getSystemClassLoader()).getTopLevelClasses("java.lang");
                 if(javaLangClasses.stream().anyMatch(info -> info.getSimpleName().equals(returnType))) {
