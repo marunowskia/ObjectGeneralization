@@ -73,9 +73,20 @@ public class InterfaceComposer {
                         }
 
                         typeToMustImplementMap.get(name).forEach(mustImplement -> {
+                            String fullyQualifiedPathToAdd = mustImplement.getPkg() + "." + mustImplement.getName();
+                            ClassOrInterfaceDeclaration classOrInterface = (ClassOrInterfaceDeclaration) typeDeclaration;
 
-                            ClassOrInterfaceType ifaceToAdd = new ClassOrInterfaceType(mustImplement.getPkg() + "." + mustImplement.getName());
+                            boolean alreadExists = classOrInterface.getImplements()
+                                    .stream()
+                                    .map(existing -> existing.getScope() + "." + existing.getName())
+                                    .anyMatch(fullyQualifiedPathToAdd::equals);
+
+                            boolean complicated = CollectionUtils.isNotEmpty(classOrInterface.getExtends());
+
+                            if(!alreadExists && !complicated) {
+                                ClassOrInterfaceType ifaceToAdd = new ClassOrInterfaceType(fullyQualifiedPathToAdd);
                             ((ClassOrInterfaceDeclaration) typeDeclaration).getImplements().add(ifaceToAdd);
+                            }
                         });
                     }
                     if(CollectionUtils.isEmpty(((ClassOrInterfaceDeclaration) typeDeclaration).getImplements())) {
@@ -201,7 +212,9 @@ public class InterfaceComposer {
 		Set<String> dependencies = def.getDependencies();
 
 		builder	.append("import defaultpackage.*;\n")
-				.append("import java.util.Optional;\n\n");
+                .append("import java.util.Optional;\n")
+                .append("import java.util.Collections;\n\n");
+
 
 		dependencies.forEach(dependency -> {
 			builder.append("import ").append(dependency).append(";\n");
