@@ -141,6 +141,7 @@ public class ResultConstructor {
 					if(CollectionUtils.isSubCollection(interfaceAMethods, interfaceBMethods)) {
 						// A only declares methods which are also present in B. Therefore, it is valid for B to extend A
 						if(!getAllSuperTypes(interfaceA).anyMatch(interfaceB::equals)) {
+							if(!interfaceB.isRequired()) {
 							interfaceB.getMustExtend().add(interfaceA);
 							interfaceA.getExtendedBy().add(interfaceB);
 							interfaceB.getMethodSignatures().removeAll(interfaceAMethods);
@@ -148,6 +149,7 @@ public class ResultConstructor {
 					}
 				}
 			}	
+		}
 		}
 		System.out.println("done with addAllValidExtends");
 	}

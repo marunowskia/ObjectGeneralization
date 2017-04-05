@@ -36,10 +36,20 @@ import lombok.extern.slf4j.Slf4j;
 public class InterfaceComposer {
 
 	public static void generateAndExportInterfaces(ValueGraph<String, List<GenericMethod>> methodGraph,
-												   File outputDirectory, HashMap<String,CompilationUnit> originalSources) {
-		Set<InterfaceDefinition> result = InterfaceDefinitionConstraintSolver.buildResult(methodGraph);
-//		outputInterfaces(result, outputDirectory);
+												   File outputDirectory, HashMap<String,CompilationUnit> originalSources,
+                                                   boolean updateOriginalFiles) {
+        Set<String> relevantTypes = originalSources.keySet()
+                .stream()
+                .filter(name -> !name.endsWith("Response"))
+                .filter(name -> !name.endsWith("Response2"))
+                .collect(Collectors.toSet());
+		Set<InterfaceDefinition> result = InterfaceDefinitionConstraintSolver.buildResult(methodGraph, relevantTypes);
+
+		outputInterfaces(result, outputDirectory);
+
+		if(updateOriginalFiles) {
 		updateJavaSource(result, originalSources);
+	}
 	}
 
 	public static void updateJavaSource(Collection<InterfaceDefinition> interfaces, HashMap<String,CompilationUnit> originalSources) {
@@ -450,6 +460,7 @@ public class InterfaceComposer {
 	@Data
 	public static class InterfaceDefinition {
 
+	    public boolean required = false;
 		public String pkg;
 		public String name;
 		public Set<String> genericParameters = new HashSet<>();
