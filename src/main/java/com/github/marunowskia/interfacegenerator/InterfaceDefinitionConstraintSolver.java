@@ -18,31 +18,43 @@ import com.google.common.io.Files;
 
 public class InterfaceDefinitionConstraintSolver { 
 
-	public static Set<InterfaceDefinition> buildResult(ValueGraph<String, List<GenericMethod>> methodGraph) {
-//		Result resultV1 = new Result();
+	public static Set<InterfaceDefinition> buildResult(ValueGraph<String, List<GenericMethod>> methodGraph,
+													   Set<String> typesWhichGetInterfaces) {
+
 		ResultConstructor resultV2 = new ResultConstructor();
 		
 		MutableValueGraph<String, List<GenericMethod>> methodGraphCopy = Graphs.inducedSubgraph(methodGraph, methodGraph.nodes()); // Raw copy of methodGraph
 
 		Set<InterfaceDefinition> currentResult = new HashSet<>();
+
+		InterfaceDefinition emptyInterface = new InterfaceDefinition();
+		emptyInterface.setName("IBlankInterface");
+		emptyInterface.setPkg("defaultpackage");
+		emptyInterface.setImplementedBy(new HashSet<>());
+		emptyInterface.getImplementedBy().add("defaultpackage.ComOp");
+		emptyInterface.setRequired(true);
+
+		currentResult.add(emptyInterface);
+
 		while(!CollectionUtils.isEmpty(methodGraphCopy.nodes())) {
-			
+
 			Collection<InterfaceDefinition> leafNodes = new ArrayList<>();
 			getLeafNodes(methodGraphCopy).forEach(leafType -> {
+
 				methodGraphCopy.removeNode(leafType);
+
+				if(!typesWhichGetInterfaces.contains(leafType)) {
+					return; // Move on to next type
+				}
 				
 				Set<String> returnedTypes = methodGraph.successors(leafType);
-				
-				if(returnedTypes.isEmpty()) {
-					return;
-				}
 				
 				InterfaceDefinition identicalInterface = new InterfaceDefinition();
 				identicalInterface.setName("I"+StringUtils.substringAfterLast(leafType, "."));
 				identicalInterface.setPkg(StringUtils.substringBeforeLast(leafType, "."));
 				identicalInterface.getImplementedBy().add(leafType);
-//				identicalInterface.getDependencies().addAll(leafType.);
-				
+//				identicalInterface.getDependencies().addAll(leafType);
+
 				
 				returnedTypes.forEach(type -> {
 					List<GenericMethod> methodSignatures = methodGraph.edgeValue(leafType, type);
