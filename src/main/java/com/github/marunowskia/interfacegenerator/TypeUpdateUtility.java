@@ -20,7 +20,7 @@ import com.github.marunowskia.interfacegenerator.InterfaceComposer.InterfaceDefi
 public class TypeUpdateUtility {
 
 	public static Set<String> getAllReferencedTypes(String type) {
-		return Arrays.stream(type.split("[^A-Za-z_0-9$]+"))
+		return Arrays.stream(type.split("[^A-Za-z_0-9$.]+"))
 			  .filter(StringUtils::isNotBlank)
 			  .filter(ref -> !"extends".equals(ref))
 			  .collect(Collectors.toSet());
