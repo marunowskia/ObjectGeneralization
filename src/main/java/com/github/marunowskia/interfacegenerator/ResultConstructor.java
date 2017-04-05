@@ -191,7 +191,9 @@ public class ResultConstructor {
 	}
 	
 	public boolean isPassthrough(InterfaceDefinition passthrough) {
-		return  passthrough.getMustExtend().size() == 1
+		return  !passthrough.isRequired()
+				&&
+				passthrough.getMustExtend().size() == 1
 				&&
 				passthrough.getMethodSignatures().isEmpty();
 	}
