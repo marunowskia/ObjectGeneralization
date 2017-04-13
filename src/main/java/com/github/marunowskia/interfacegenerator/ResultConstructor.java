@@ -275,4 +275,32 @@ public class ResultConstructor {
 		});
 		return result;
 	}
+
+	private static Set<InterfaceDefinition> reorganizePackages(Set<InterfaceDefinition> allInterfaces) {
+		allInterfaces.forEach(iface -> {
+
+			Collection<String> allImplementors = new ArrayList<String>();
+			allImplementors.addAll(Arrays.asList(iface.getIndirectlyImplementedBy().toArray(new String[]{})));
+			allImplementors.addAll(Arrays.asList(iface.getImplementedBy().toArray(new String[]{})));
+			allImplementors = allImplementors
+					.stream()
+					.map(fullyQualified -> StringUtils.substringBeforeLast(fullyQualified, "."))
+					.collect(Collectors.toList());
+
+
+			String newPackage = StringUtils.getCommonPrefix(allImplementors.toArray(new String[]{}));
+			if(newPackage.endsWith(".")) {
+				newPackage = StringUtils.substringBeforeLast(newPackage,".");
+			}
+			if(newPackage.isEmpty()) {
+				newPackage = "defaultpackage";
+			}
+
+			// Being lazy about hashset hashes... TODO: FIX THIS! THERE IS AN OBVIOUS BUG HERE.
+			iface.getExtendedBy().forEach(sub->sub.getMustExtend().remove(iface));
+			iface.setPkg(newPackage);
+			iface.getExtendedBy().forEach(sub->sub.getMustExtend().add(iface));
+		});
+		return allInterfaces;
+	}
 }
