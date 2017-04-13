@@ -264,6 +264,8 @@ public class InterfaceComposer {
 
 	private static void addExtendedByComments(StringBuilder builder, InterfaceDefinition def) {
 		Set<InterfaceDefinition> extendedBy = def.getExtendedBy();
+		// XXX: PRETENDS WE DON'T HAVE AN OBVIOUS PROBLEM WITH HASHCODES BEING COMPUTED AGAINST NON-FINAL STRINGS!
+		Set<InterfaceDefinition> extendedBy = new HashSet<>(def.getExtendedBy());
 
 		if (!extendedBy.isEmpty()) {
 			builder.append("// Extended by:\n");
