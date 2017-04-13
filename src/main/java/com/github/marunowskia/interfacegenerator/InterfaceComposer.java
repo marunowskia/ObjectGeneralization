@@ -39,11 +39,13 @@ public class InterfaceComposer {
 	public static void generateAndExportInterfaces(ValueGraph<String, List<GenericMethod>> methodGraph,
 												   File outputDirectory, HashMap<String,CompilationUnit> originalSources,
                                                    boolean updateOriginalFiles) {
-        Set<String> relevantTypes = originalSources.keySet()
+
+		Set<String> relevantTypes = originalSources.keySet()
                 .stream()
                 .filter(name -> !name.endsWith("Response"))
-                .filter(name -> !name.endsWith("Response2"))
+				.filter(name -> !name.endsWith("Response2"))
                 .collect(Collectors.toSet());
+
 		Set<InterfaceDefinition> result = InterfaceDefinitionConstraintSolver.buildResult(methodGraph, relevantTypes);
 
 		outputInterfaces(result, outputDirectory);
@@ -108,21 +110,28 @@ public class InterfaceComposer {
 
 	public static void outputInterfaces(Collection<InterfaceDefinition> requiredInterfaces, File parentDirectory) {
 
-		requiredInterfaces.forEach(def -> {
-			if (StringUtils.isBlank(def.pkg)) {
-				def.pkg = "defaultpackage";
-			}
+        HashSet<String> outputInterfacesFullyQualifiedType = new HashSet<>();
+        requiredInterfaces.forEach(def -> {
+            if (StringUtils.isBlank(def.getPkg())) {
+                def.setPkg("defaultpackage");
+            }
 
-			Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\.")).resolve(def.name);
-			System.out.println(outputPath);
-		});
-		requiredInterfaces.forEach(def -> {
 
-			String javaSourceCode = createJavaSourceCode(def);
+            outputInterfacesFullyQualifiedType.add(def.getPkg() + "." + def.getName());
+            Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\.")).resolve(def.name);
+            System.out.println(outputPath);
+        });
 
-			// Write the string builder's content to the appropriate output
-			// file.
-			try {
+        requiredInterfaces.forEach(def -> {
+            if(def.getPkg().length()<3) {
+                System.out.println();
+            }
+
+            String javaSourceCode = createJavaSourceCode(def, outputInterfacesFullyQualifiedType);
+            // Write the string builder's content to the appropriate output
+            // file.
+            try {
+
 				Path outputPath = Paths.get(parentDirectory.getAbsolutePath(), def.pkg.split("\\."))
 						.resolve(def.name + ".java");
 				// SLF4J just stopped working?
@@ -130,12 +139,6 @@ public class InterfaceComposer {
 				outputFile.delete();
 				Files.createParentDirs(outputFile);
 				outputFile.createNewFile();
-				if(outputPath.toAbsolutePath().toString().contains("account")) {
-					if (outputPath.toAbsolutePath().toString().contains("IArrayOfExtendedAttributesObj")) {
-
-						System.out.println();
-					}
-				}
 				Files.write(javaSourceCode.getBytes(), outputFile);
 				System.out.println(javaSourceCode);
 
@@ -145,7 +148,7 @@ public class InterfaceComposer {
 		});
 	}
 
-	private static String createJavaSourceCode(InterfaceDefinition def) {
+	private static String createJavaSourceCode(InterfaceDefinition def, Set<String> outputInterfacesFullyQualifiedType) {
 		StringBuilder builder = new StringBuilder();
 
 		// ==================== Output file structure ====================
@@ -198,7 +201,7 @@ public class InterfaceComposer {
 		// public static NAME missing() { return MISSING;}
 		//
 		// }
-		addInterfaceDeclaration(builder, def);
+		addInterfaceDeclaration(builder, def, outputInterfacesFullyQualifiedType);
 		// ==================== Output file structure ====================
 
 		return builder.toString();
@@ -246,14 +249,12 @@ public class InterfaceComposer {
 
 		Set<InterfaceDefinition> extendedBy = def.getExtendedBy();
 
-		Set<String> indirectImplementors = extendedBy.stream().map(id->id.getImplementedBy()).reduce(new HashSet<String>(), (identity, incoming) -> {
-			identity.addAll(incoming);
-			return identity;
-		});
+		Set<String> indirectImplementors = def.getIndirectlyImplementedBy();
 
 		if (!indirectImplementors.isEmpty()) {
 			builder.append("// Implemented indirectly by:\n");
-			indirectImplementors.forEach(implementor -> {
+			indirectImplementors.stream().sorted()
+					.forEach(implementor -> {
 				builder	.append("//")
 						.append(implementor).append("\n");
 			});
@@ -263,15 +264,17 @@ public class InterfaceComposer {
 	}
 
 	private static void addExtendedByComments(StringBuilder builder, InterfaceDefinition def) {
-		Set<InterfaceDefinition> extendedBy = def.getExtendedBy();
 		// XXX: PRETENDS WE DON'T HAVE AN OBVIOUS PROBLEM WITH HASHCODES BEING COMPUTED AGAINST NON-FINAL STRINGS!
 		Set<InterfaceDefinition> extendedBy = new HashSet<>(def.getExtendedBy());
 
 		if (!extendedBy.isEmpty()) {
 			builder.append("// Extended by:\n");
 
-			extendedBy.forEach(otherInterface -> {
-				
+			extendedBy
+					.stream()
+					.sorted((a,b)->a.toString().compareTo(b.toString()))
+					.forEach(otherInterface -> {
+
 				builder
 					.append("//")
 					.append(otherInterface.getPkg())
@@ -298,7 +301,7 @@ public class InterfaceComposer {
 		}
 	}
 
-	private static void addInterfaceDeclaration(StringBuilder builder, InterfaceDefinition def) {
+	private static void addInterfaceDeclaration(StringBuilder builder, InterfaceDefinition def, Set<String> outputInterfacesFullyQualifiedType) {
 
 		// public interface NAME
 		builder.append("\npublic interface ").append(def.name).append("\n");
@@ -328,7 +331,7 @@ public class InterfaceComposer {
 		// public default ReturnType something() {...}
 		// public default ReturnType somethingElse() {...}
 		//
-		addChainableMethods(builder, def);
+		addChainableMethods(builder, def, outputInterfacesFullyQualifiedType);
 
 		// public default boolean isMissing() {return false;}
 		// public static final NAME MISSING = new NAME() {}
@@ -354,11 +357,20 @@ public class InterfaceComposer {
 					.sorted()
 					.forEach(fromSamePkg -> builder.append("\t/*?*/").append(fromSamePkg).append(",\n"));
 
-			extendsList.stream().filter(extended -> !StringUtils.equals(extended.getPkg(), def.getPkg())).sorted(
-					Comparator.comparing(InterfaceDefinition::getPkg).thenComparing(InterfaceDefinition::getName))
+			extendsList
+                    .stream()
+                    .filter(extended -> !StringUtils.equals(extended.getPkg(), def.getPkg()))
+                    .sorted(
+					    Comparator  .comparing(InterfaceDefinition::getPkg)
+                                    .thenComparing(InterfaceDefinition::getName))
 
-					.forEach(fromOtherPkg -> builder.append("\t").append(fromOtherPkg.getPkg()).append(".")
-							.append(fromOtherPkg.getName()).append(",\n"));
+					.forEach(fromOtherPkg -> {
+					    builder .append("\t")
+                                .append(fromOtherPkg.getPkg())
+                                .append(".")
+                                .append(fromOtherPkg.getName())
+                                .append(",\n");
+                    });
 
 			builder.setLength(builder.length() - 2); // Hack to take off the
 														// last comma
@@ -414,11 +426,42 @@ public class InterfaceComposer {
                 return;// no reason to make optionals of something that can't be null!
             }
 
+            String originalMethodName = method.getOriginalDeclaration().getNameExpr().toStringWithoutComments();
+            String methodName =
+                    StringUtils.startsWithIgnoreCase(originalMethodName, "get")
+                            ? StringUtils.substringAfter(originalMethodName, "get")
+                            : StringUtils.substringAfter(originalMethodName, "is");
 
-			String originalMethodName = method.getOriginalDeclaration().getNameExpr().toStringWithoutComments();
-			builder.append("\tpublic default Optional<? extends ").append(method.getReturnTypeString()).append("> o")
-					.append(StringUtils.capitalize(StringUtils.substringAfter(originalMethodName, "get")))
-					.append("() {return Optional.ofNullable(").append(originalMethodName).append("());}\n\n");
+
+		    builder.append("\tpublic default Optional<? extends ");
+
+
+
+            if(returnsJaxbWrapper(method)) {
+                String genericType = TypeUpdateUtility.getGenericComponent(returnType);
+                if(genericType.trim().startsWith("? extends ")) {
+                    builder.append(StringUtils.substringAfter(genericType, "? extends "));
+                }
+                else {
+                    builder.append(genericType);
+                }
+            }
+            else {
+                builder.append(method.getReturnTypeString());
+            }
+
+            builder .append("> o")
+                    .append(methodName)
+                    .append("() { return ");
+
+            if(returnsJaxbWrapper(method)) {
+                builder.append("ComOp.oj(");
+            }
+            else {
+                builder.append("Optional.ofNullable(");
+            }
+            builder .append(originalMethodName)
+                    .append("());}\n\n");
 		});
 
 		if (!def.getMethodSignatures().isEmpty()) {
@@ -426,73 +469,126 @@ public class InterfaceComposer {
 		}
 	}
 
-	private static void addChainableMethods(StringBuilder builder, InterfaceDefinition def) {
+	private static void addChainableMethods(StringBuilder builder, InterfaceDefinition def, Set<String> outputInterfacesFullyQualifiedType) {
 		// TODO: Need to work out details for automatically unwrapping various wrapper classes.
-		
+
 		def.getMethodSignatures().forEach(method -> {
+
+		    if(!isChainable(method, outputInterfacesFullyQualifiedType)) {
+		        return;
+            }
 
 			String originalMethodName = method.getOriginalDeclaration().getNameExpr().toStringWithoutComments();
 			String chainableReturnType = getChainableReturnType(method);
-			String chainableMethodBody = getChainableMethodBody(method);
-			
+			String chainableMethodBody = getChainableMethodBody(method, outputInterfacesFullyQualifiedType);
+
+			String methodName =
+                    StringUtils.startsWithIgnoreCase(originalMethodName, "get")
+                    ? StringUtils.substringAfter(originalMethodName, "get")
+                    : StringUtils.substringAfter(originalMethodName, "is");
+
+			methodName = StringUtils.uncapitalize(methodName);
+
+
 			builder	.append("\tpublic default ")
 					.append(chainableReturnType)
 					.append(" ")
-					.append(StringUtils.uncapitalize(StringUtils.substringAfter(originalMethodName, "get")))
+					.append(methodName)
 					.append("() {\n")
 					.append(chainableMethodBody)
 					.append("\n\t}\n\n");
 		});
-		
+
 		// public default java.util.List<? extends ICustomField> customFields()
 		// {
 		// List<? extends ICustomField> result = getCustomField();
 		// return result != null : result : Collections.EMPTY_LIST;
 		// }
 	}
-	
+
+	private static boolean isChainable(GenericMethod method,  Set<String> outputInterfacesFullyQualifiedType) {
+	    String type = method.getReturnTypeString();
+
+        if(returnsWrapper(method)) {
+            type = TypeUpdateUtility.getGenericComponent(type);
+            if(TypeUpdateUtility.getAllReferencedTypes(type).size()!=1) {
+                return false;
+            }
+        }
+
+        return returnsListWrapper(method) ||
+                returnsWrapper(method) ||
+                outputInterfacesFullyQualifiedType.contains(type);
+
+
+    }
+
+    private static boolean returnsWrapper(GenericMethod method) {
+        return returnsJaxbWrapper(method) || returnsOptionalWrapper(method);
+    }
+
+    private static boolean returnsJaxbWrapper(GenericMethod method) {
+	    String returnType = method.getReturnTypeString();
+        return  TypeUpdateUtility.getPrimaryComponent(returnType).contains("JAXBElement")
+                &&
+                StringUtils.isNotBlank(TypeUpdateUtility.getGenericComponent(returnType));
+    }
+
+    private static boolean returnsOptionalWrapper(GenericMethod method) {
+        return TypeUpdateUtility.getPrimaryComponent(method.getReturnTypeString()).contains("java.util.Optional");
+    }
+
+    private static boolean returnsListWrapper(GenericMethod method) {
+        return TypeUpdateUtility.getPrimaryComponent(method.getReturnTypeString()).contains("java.util.List");
+    }
+
 	private static String getOriginalMethodName(GenericMethod method) {
 		return method.getOriginalDeclaration().getNameExpr().toStringWithoutComments();
 	}
 
-	private static String getChainableMethodBody(GenericMethod method) {
+	private static boolean implementsMissing(String type, Set<String> outputInterfacesFullyQualifiedType) {
+        return outputInterfacesFullyQualifiedType.contains(type);
+    }
+
+	private static String getChainableMethodBody(GenericMethod method, Set<String> outputInterfacesFullyQualifiedType) {
 		String returnType = getChainableReturnType(method);
-
-
-		if(method.getReturnTypeString().contains("JAXBElement")) {
-		    boolean shouldReturnMissing = true;
-
-		    if(method.getReturnTypeString().startsWith("java")) {
-                shouldReturnMissing = false;
+		if(returnsJaxbWrapper(method) ) {
+            if(implementsMissing(returnType, outputInterfacesFullyQualifiedType)) {
+                return "\t\tOptional< ? extends " + returnType + "> result = ComOp.oj(" + getOriginalMethodName(method)
+                        + "());\n\t\treturn result.isPresent()?result.get() : " + returnType + ".missing();";
             }
-		    try {
-                Collection<ClassPath.ClassInfo> javaLangClasses = ClassPath.from(ClassLoader.getSystemClassLoader()).getTopLevelClasses("java.lang");
-                if(javaLangClasses.stream().anyMatch(info -> info.getSimpleName().equals(returnType))) {
-                    shouldReturnMissing = false;
-                }
-
-            } catch (IOException e) {
-                e.printStackTrace();
+            else {
+                    return "\t\tOptional< ? extends " + returnType + "> result = ComOp.oj(" + getOriginalMethodName(method)
+                            + "());\n\t\treturn result.isPresent()?result.get() : null;";
             }
+        }
 
+        if(returnsOptionalWrapper(method)) {
+            return "\t\tOptional< ? extends " + returnType + "> result = Optional.ofNullable("+getOriginalMethodName(method)
+                    + "());\n\t\treturn result.isPresent() && result.get().isPresent? result.get().get() : " + returnType + ".missing();";
+        }
 
-			if(shouldReturnMissing) {
-				return "\t\tOptional< ? extends " + returnType + "> result = ComOp.oj(" + getOriginalMethodName(method)
-						+ "());\n\t\treturn result.isPresent()?result.get() : " + returnType + ".missing();";
-			}
-			return "\t\tOptional< ? extends " + returnType + "> result = ComOp.oj(" + getOriginalMethodName(method)
-					+ "());\n\t\treturn result.isPresent()?result.get() : null;";
-		}
-		return "\t\treturn " + getOriginalMethodName(method) + "();";
+        if(returnsListWrapper(method)) {
+            return "\t\tOptional< ? extends " + returnType + "> result = Optional.ofNullable("+getOriginalMethodName(method)
+                    + "());\n\t\treturn result.isPresent()?result.get() : Collections.EMPTY_LIST;";
+        }
+
+        return "\t\tOptional< ? extends " + returnType + "> result = Optional.ofNullable("+getOriginalMethodName(method)
+                    + "());\n\t\treturn result.isPresent()?result.get() : " + returnType + ".missing();";
 	}
 
 	private static String getChainableReturnType(GenericMethod method) {
-		if(method.getReturnTypeString().contains("JAXBElement")) {
-			String genericComponent = TypeUpdateUtility.getGenericComponent(method.getReturnTypeString());
-			Collection<String> typeComponents = TypeUpdateUtility.getAllReferencedTypes(genericComponent);
-			return typeComponents.stream().findFirst().orElse("void");
-		}
-		return method.getReturnTypeString();
+
+        String type = method.getReturnTypeString();
+        if(returnsListWrapper(method)) {
+            return type;
+        }
+        if(returnsJaxbWrapper(method) || returnsOptionalWrapper(method)) {
+            type = TypeUpdateUtility.getGenericComponent(type);
+            return CollectionUtils.extractSingleton(TypeUpdateUtility.getAllReferencedTypes(type));
+        }
+        return type;
+
 	}
 
 	private static void addIsMissingComponent(StringBuilder builder, InterfaceDefinition def) {
@@ -527,7 +623,7 @@ public class InterfaceComposer {
 		}
 
 		public Set<GenericMethod> getAllMethods() {
-			System.out.println("new getAllMethods request: " + pkg + "." + name );
+//			System.out.println("new getAllMethods request: " + pkg + "." + name );
 
 			return getAllMethods(0);
 		}
@@ -613,6 +709,13 @@ public class InterfaceComposer {
 			this.implementedBy = implementedBy;
 		}
 
+		public Set<String> getIndirectlyImplementedBy() {
+            return extendedBy.stream().map(id->id.getImplementedBy()).reduce(new HashSet<String>(), (identity, incoming) -> {
+                identity.addAll(incoming);
+                return identity;
+            });
+        }
+
 
 
 		@Override
@@ -648,7 +751,7 @@ public class InterfaceComposer {
 
 		@Override
 		public String toString() {
-			return "Interface " + name;
+			return "Interface " + pkg+"."+name;
 		}
 
 	}

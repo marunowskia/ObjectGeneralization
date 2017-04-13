@@ -53,7 +53,6 @@ public class InterfaceDefinitionConstraintSolver {
 				identicalInterface.setName("I"+StringUtils.substringAfterLast(leafType, "."));
 				identicalInterface.setPkg(StringUtils.substringBeforeLast(leafType, "."));
 				identicalInterface.getImplementedBy().add(leafType);
-//				identicalInterface.getDependencies().addAll(leafType);
 
 				
 				returnedTypes.forEach(type -> {
@@ -65,10 +64,10 @@ public class InterfaceDefinitionConstraintSolver {
 			});
 			leafNodes.addAll(currentResult);
 			currentResult = resultV2.buildResult(leafNodes);
-//			InterfaceComposer.outputInterfaces(currentResult, Files.createTempDir());
+			//USEFUL FOR DEBUG: InterfaceComposer.outputInterfaces(currentResult, Files.createTempDir());
 		}
 		
-		return currentResult;//resultV1.getFinalDefinitions();
+		return currentResult;
 	}
 
 	private static List<String> getLeafNodes(MutableValueGraph<String, List<GenericMethod>> graph) {

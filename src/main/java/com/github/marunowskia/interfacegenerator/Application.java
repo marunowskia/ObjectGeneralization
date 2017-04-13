@@ -35,25 +35,30 @@ import com.google.common.io.Files;
 public class Application {
 
 	public static void main(String args[]) {
+		// The input directory will be
+		// The set of input files is effectively the unix command:
+		// find $pathToInputDirectory -iname '*.java'`
+		Path inputDirectory = Paths.get("/path/to/input/");
 
-		Path parentPathOfTargets = Paths.get("src/main/java/com/github/marunowskia/interfacegenerator/demo");
-		boolean updateOriginalFiles = false;
+		// File outputDirectory 		= Files.createTempDir();
+		Path outputDirectory = Paths.get("/path/to/output");
 
-		File outputDirectory 		= Files.createTempDir();
-//		boolean updateOriginalFiles = true;
+		// This flag determines whether the original *.java files should be updated to implement the newly created interfaces
+		boolean updateOriginalFiles = true;
 
-		File parentDirectoryOfTargets = parentPathOfTargets.toFile();
+		unifyTypeHierarchy(inputDirectory, outputDirectory, updateOriginalFiles);
+	}
 
-
+	public static void unifyTypeHierarchy(Path inputDirectory, Path outputDirectory, boolean modifyInputFiles) {
 		Collection<File> allJavaFiles =  new ArrayList<>();
 
 		Collection<File> desiredDirs = 
 		FileUtils.listFilesAndDirs(
-				parentDirectoryOfTargets, 
+				inputDirectory.toFile(),
 				FileFilterUtils.falseFileFilter(), 
 				FileFilterUtils.prefixFileFilter("SoapContract")
 			);
-		
+
 		System.out.println(desiredDirs);
 		desiredDirs.forEach(dir -> {
 					allJavaFiles.addAll(
@@ -67,28 +72,12 @@ public class Application {
 		allJavaFiles.forEach(System.out::println);
 
 		// Construct type dependency graph
-		MutableValueGraph<String, List<GenericMethod>> methodGraph = com.google.common.graph.ValueGraphBuilder.directed().allowsSelfLoops(true).build();
+		MutableValueGraph<String, List<GenericMethod>> methodGraph = com.google.common.graph.ValueGraphBuilder.directed().allowsSelfLoops(false).build();
 
 		HashMap<String, TypeDeclaration> typeToTypeDeclaration = new HashMap<>();
-
 		HashMap<String, CompilationUnit> classToCompilationMap = new HashMap<>();
-		HashMap<String, Set<String>> packageContents = new HashMap<>();
-		allJavaFiles.forEach(file -> {
-			try {
-				CompilationUnit fileContents = JavaParser.parse(file);
-				String pkg = getPkg(fileContents);
 
-				if(!packageContents.containsKey(pkg)) {
-					packageContents.put(pkg, new HashSet<>());
-				}
-				Set<String> knownTypes = packageContents.get(pkg);
-
-				createPathToTypeMap(fileContents).keySet().forEach(knownTypes::add);
-
-			} catch (ParseException | IOException e) {
-				e.printStackTrace();
-			}
-		});
+		HashMap<String, Set<String>> packageContents = createPackageToClassMap(allJavaFiles);
 
 		allJavaFiles.forEach(file -> {
 			try {
@@ -96,47 +85,18 @@ public class Application {
 
 
 				CompilationUnit fileContents = JavaParser.parse(file);
-				String pkg = getPkg(fileContents);
+
 				fileContents.setData(file);
 
-				Hashtable<String, String> classToPackageMap = new Hashtable<>();
-
-
-				if(fileContents.getImports()!=null) {
-					fileContents.getImports().forEach(importDecl -> {
-						String className 	= importDecl.getName().getName();
-						String packageName  = "";
-						NameExpr importName = importDecl.getName();
-						while(importName != null && importName instanceof QualifiedNameExpr) {
-							packageName = ((QualifiedNameExpr) importName).getQualifier().getName() + "." + packageName; // ends with a period, assuming the import target is qualified with a package
-							importName = ((QualifiedNameExpr) importName).getQualifier();
-						}
-						classToPackageMap.put(className, packageName  + className);
-					});
-				}
-
-				Set<String> knownTypes = packageContents.get(pkg);
-
-				for (String knownType : knownTypes) {
-
-					// This is broken, and needs to be reworked.
-					classToPackageMap.put(StringUtils.substringAfter(knownType, pkg+"."), knownType); // Fully qualified reference to inner types
-					classToPackageMap.put(StringUtils.substringAfterLast(knownType, "."), knownType); // Unqualified references to inner types.
-
-				}
+				Hashtable<String, String> classToPackageMap = mapTypeToFullyQualifiedType(packageContents, fileContents);
 
 
 				HashMap<String, File> originalFiles = new HashMap<>();
 				Hashtable<String, List<GenericMethod>> requestReturnTypeMethods = new Hashtable<>();
 				createPathToTypeMap(fileContents).forEach((path, type) -> {
 						// Currently, we assume there are no nested types
-						Object test = type.getParentNode();
-
-
-						String typeName = type.getName();
 						classToCompilationMap.put(path, fileContents);
 						typeToTypeDeclaration.put(path, type);
-
 
 						if(type.getMembers()!=null)
 						type.getMembers().forEach(member -> {
@@ -145,10 +105,12 @@ public class Application {
 
 								// Only care about getters right now
 								boolean methodHasNoParameters = CollectionUtils.isEmpty(method.getParameters());
-								boolean methodIsNotVoid = method.getType().toStringWithoutComments().contains("void");
-								if(	method.getName().startsWith("get") && CollectionUtils.isEmpty(method.getParameters())) {
+								boolean methodIsNotVoid = !method.getType().toStringWithoutComments().contains("void");
+								boolean methodIsGetter = method.getName().startsWith("get") || method.getName().startsWith("is");
 
-									// There is an edge from this class to another class which is named [the method's name]
+								if(methodHasNoParameters && methodIsNotVoid && methodIsGetter) {
+
+										// There is an edge from this class to another class which is named [the method's name]
 									Set<String> returnTypePaths = TypeUpdateUtility.getAllReferencedTypes(method.getType().toStringWithoutComments());
 
 									returnTypePaths.forEach(returnTypePath -> {
@@ -196,9 +158,59 @@ public class Application {
 			throw new IllegalArgumentException("The target directy contains a cyclic type-reference. Aborting.");
 		}
 
+		InterfaceComposer.generateAndExportInterfaces(methodGraph, outputDirectory.toFile(), classToCompilationMap, modifyInputFiles);
+	}
 
-		System.out.println(outputDirectory.getAbsolutePath());
-		InterfaceComposer.generateAndExportInterfaces(methodGraph, outputDirectory, classToCompilationMap, updateOriginalFiles);
+	private static Hashtable<String, String> mapTypeToFullyQualifiedType(HashMap<String, Set<String>> packageContents, CompilationUnit fileContents) {
+
+		String pkg = getPkg(fileContents);
+		Hashtable<String, String> classToPackageMap = new Hashtable<>();
+
+		if(fileContents.getImports()!=null) {
+            fileContents.getImports().forEach(importDecl -> {
+                String className 	= importDecl.getName().getName();
+                String packageName  = "";
+                NameExpr importName = importDecl.getName();
+                while(importName != null && importName instanceof QualifiedNameExpr) {
+                    packageName = ((QualifiedNameExpr) importName).getQualifier().getName() + "." + packageName; // ends with a period, assuming the import target is qualified with a package
+                    importName = ((QualifiedNameExpr) importName).getQualifier();
+                }
+                classToPackageMap.put(className, packageName  + className);
+            });
+        }
+
+		Set<String> knownTypes = packageContents.get(pkg);
+
+		for (String knownType : knownTypes) {
+
+            // This is broken, and needs to be reworked.
+            classToPackageMap.put(StringUtils.substringAfter(knownType, pkg+"."), knownType); // Fully qualified reference to inner types
+            classToPackageMap.put(StringUtils.substringAfterLast(knownType, "."), knownType); // Unqualified references to inner types.
+
+        }
+		return classToPackageMap;
+	}
+
+	private static HashMap<String,Set<String>> createPackageToClassMap(Collection<File> allJavaFiles) {
+		HashMap<String, Set<String>> packageContents = new HashMap<>();
+		allJavaFiles.forEach(file -> {
+			try {
+				CompilationUnit fileContents = JavaParser.parse(file);
+				String pkg = getPkg(fileContents);
+
+				if(!packageContents.containsKey(pkg)) {
+					packageContents.put(pkg, new HashSet<>());
+				}
+				Set<String> knownTypes = packageContents.get(pkg);
+
+				createPathToTypeMap(fileContents).keySet().forEach(knownTypes::add);
+
+			} catch (ParseException | IOException e) {
+				e.printStackTrace();
+			}
+		});
+
+		return packageContents;
 	}
 
 
@@ -209,7 +221,6 @@ public class Application {
 
 		if(fromCompilationUnit.getTypes()==null) {
 			System.out.println("NULL COMPILATION UNIT TYPES: " + fromCompilationUnit.toString());
-			System.out.println("NULL COMPILATION UNIT TYPES: " + fromCompilationUnit.getData());
 		}
 		else {
 			fromCompilationUnit.getTypes().forEach(typeDeclaration -> {
@@ -234,9 +245,6 @@ public class Application {
 	}
 
 	private static void addSubtypes(@NonNull TypeDeclaration fromType, @NonNull HashMap<String, TypeDeclaration> toMap, @NonNull String typePath) {
-		if(fromType.getName().equals("RestoreDeviceRequest")) {
-			System.out.print("RestoreDeviceRequest");
-		}
 		fromType.getChildrenNodes().forEach(subnode -> {
 			if(subnode instanceof ClassOrInterfaceDeclaration) {
 				ClassOrInterfaceDeclaration subtype = (ClassOrInterfaceDeclaration) subnode;

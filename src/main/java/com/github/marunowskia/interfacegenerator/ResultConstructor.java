@@ -1,16 +1,10 @@
 package com.github.marunowskia.interfacegenerator;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import info.debatty.java.stringsimilarity.LongestCommonSubsequence;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -52,11 +46,27 @@ public class ResultConstructor {
 		allSharedMethods.forEach(this::pruneRedundantSuperclasses);
 		allSharedMethods.forEach(this::flattenHierarchy);
 		eraseOrphanInterfaces(allSharedMethods);
+		eraseUndesiredInterfaces(allSharedMethods);
 
 		updateDependencies(allSharedMethods);
 		
 
 		return allSharedMethods;
+	}
+
+	private void eraseUndesiredInterfaces(Set<InterfaceDefinition> interfaceDefinitions) {
+		Set<InterfaceDefinition> toRemove =
+				interfaceDefinitions.stream()
+						.filter(orphan -> orphan.getMethodSignatures().size()==1)
+						.filter(orphan ->
+								CollectionUtils.extractSingleton(orphan.getMethodSignatures()).getMethodSignature().endsWith("getInput()")
+						)
+						.collect(Collectors.toSet());
+
+		if(!toRemove.isEmpty()) {
+			interfaceDefinitions.forEach(iface -> iface.getExtendedBy().removeAll(toRemove));
+			interfaceDefinitions.removeAll(toRemove);
+		}
 	}
 
 	private void updateDependencies(Collection<InterfaceDefinition> allSharedMethods) {
@@ -77,14 +87,22 @@ public class ResultConstructor {
 
 	private void renameSingleMethodInterfaces(Set<InterfaceDefinition> allSharedMethods) {
 		allSharedMethods.forEach(def -> {
-			if(def.getMethodSignatures().size()==1 && def.getName().startsWith("IFace")) {
-				
+			if(def.getAllMethods().size()==1 && def.getMethodSignatures().size()==1) {
+
+				if(CollectionUtils.size(def.getImplementedBy()) + CollectionUtils.size(def.getIndirectlyImplementedBy()) == 1) {
+					return;
+				}
+
 				GenericMethod onlyMethod = CollectionUtils.extractSingleton(def.getMethodSignatures());
-				String newName = 
+				String newName =
 						"I"
-						+ String.join("", onlyMethod.getOriginalDeclaration().getType().toStringWithoutComments().replaceAll("[^A-Za-z_$0-9]", "_")) 
+						+ String.join("", onlyMethod.getOriginalDeclaration().getType().toStringWithoutComments().replaceAll("<.*>", ""))
 						+ onlyMethod.getOriginalDeclaration().getName().substring(3);
+
+				// Being lazy about hashmaps...
+				def.getExtendedBy().forEach(sub->sub.getMustExtend().remove(def));
 				def.setName(newName);
+				def.getExtendedBy().forEach(sub->sub.getMustExtend().add(def));
 			}
 		});
 	}
@@ -131,20 +149,35 @@ public class ResultConstructor {
 			// This should never happen
 			System.exit(1);
 		}
-		
+
+
 		InterfaceDefinition result = new InterfaceDefinition();
 		result.setName("IFace" + interfaceCounter++);
-		result.setPkg("");
+		result.setPkg("defaultpackage");
 		result.getMethodSignatures().addAll(getIntersection(originalInterface, fromPreviousIteration));
 		return result;
 	}
 
 	private Optional<InterfaceDefinition> findMatchingMethodSet(Set<GenericMethod> methodIntersection, Collection<InterfaceDefinition> allCommonalities) {
-		return allCommonalities.stream().filter(iface -> CollectionUtils.isEqualCollection(iface.getMethodSignatures(), methodIntersection)).findAny();
+		return allCommonalities.stream().filter(iface -> CollectionUtils.isEqualCollection(iface.getAllMethods(), methodIntersection)).findAny();
 	}
+
+//	private Optional<InterfaceDefinition> findMatchingMethodSet(Set<GenericMethod> methodIntersection, Collection<InterfaceDefinition> allCommonalities) {
+//		final HashSet<GenericMethod> updatedHashes = new HashSet<>();
+//		methodIntersection.forEach(updatedHashes::add);
+//		methodIntersection = updatedHashes;
+//
+//		allCommonalities.forEach(iface-> {
+//			HashSet<GenericMethod> ifacehashes = new HashSet<>();
+//			iface.getMethodSignatures().forEach(ifacehashes::add);
+//			iface.setMethodSignatures(ifacehashes);
+//		});
+//		return allCommonalities.stream().filter(iface -> CollectionUtils.isEqualCollection(iface.getAllMethods(), updatedHashes)).findAny();
+//	}
 
 	private void addAllValidExtends(Collection<InterfaceDefinition> interfaces) {
 		System.out.println("addAllValidExtends");
+		HashMap<InterfaceDefinition, String> newPackages = new HashMap<>();
 		HashMap<InterfaceDefinition, Collection<GenericMethod>> allMethods = new HashMap<>();
 		for(InterfaceDefinition interfaceA : interfaces) {
 			Collection<GenericMethod> interfaceAMethods = allMethods.getOrDefault(interfaceA, interfaceA.getAllMethods());
@@ -154,6 +187,9 @@ public class ResultConstructor {
 		}
 		for(InterfaceDefinition interfaceA : interfaces) {
 			for(InterfaceDefinition interfaceB : interfaces) {
+				if(interfaceA.getName().equals("IFace15") && interfaceB.getName().equals("IFace19")) {
+					System.out.print("");
+				}
 				Collection<GenericMethod> interfaceAMethods = allMethods.get(interfaceA);
 				if(interfaceA!=interfaceB) {
 					Collection<GenericMethod> interfaceBMethods = allMethods.get(interfaceB);
@@ -164,6 +200,7 @@ public class ResultConstructor {
 								interfaceB.getMustExtend().add(interfaceA);
 								interfaceA.getExtendedBy().add(interfaceB);
 								interfaceB.getMethodSignatures().removeAll(interfaceAMethods);
+
 							}
 						}
 					}
@@ -171,14 +208,16 @@ public class ResultConstructor {
 			}	
 		}
 		System.out.println("done with addAllValidExtends");
+
+		newPackages.forEach((iface, pkg) -> iface.setPkg(pkg));
 	}
 
 
 	private Set<GenericMethod> getIntersection(InterfaceDefinition newInterface, InterfaceDefinition oldInterface) {
-		Set<GenericMethod> oldMethods = new HashSet<>(oldInterface.getMethodSignatures()); // Recompute hashes... This should be avoided. Currently this is just a horrible hack.
+		Set<GenericMethod> oldMethods = new HashSet<>(oldInterface.getAllMethods()); // Recompute hashes... This should be avoided. Currently this is just a horrible hack.
 		oldInterface.setMethodSignatures(oldMethods);
 		
-		Set<GenericMethod> newMethods = new HashSet<>(newInterface.getMethodSignatures());
+		Set<GenericMethod> newMethods = new HashSet<>(newInterface.getAllMethods());
 		newInterface.setMethodSignatures(newMethods);
 		
 		return oldMethods.stream().filter(newMethods::contains).collect(Collectors.toSet());
@@ -242,13 +281,12 @@ public class ResultConstructor {
 	}
 	
 	private void eraseOrphanInterfaces(Set<InterfaceDefinition> interfaceDefinitions) {
-		Set<InterfaceDefinition> toRemove = 
+		Set<InterfaceDefinition> toRemove =
 				interfaceDefinitions.stream()
-									.filter(orphan -> orphan.getExtendedBy().isEmpty())
-									.filter(orphan -> orphan.getImplementedBy().isEmpty())
-									.filter(orphan -> !orphan.isRequired())
-									.collect(Collectors.toSet());
-
+						.filter(orphan -> orphan.getExtendedBy().isEmpty())
+						.filter(orphan -> orphan.getImplementedBy().isEmpty())
+						.filter(orphan -> !orphan.isRequired())
+						.collect(Collectors.toSet());
 
 
 		if(!toRemove.isEmpty()) {
