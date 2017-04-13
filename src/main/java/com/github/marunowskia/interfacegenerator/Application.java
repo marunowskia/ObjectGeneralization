@@ -138,6 +138,7 @@ public class Application {
 						typeToTypeDeclaration.put(path, type);
 
 
+						if(type.getMembers()!=null)
 						type.getMembers().forEach(member -> {
 							if(member instanceof MethodDeclaration) {
 								MethodDeclaration method = ((MethodDeclaration) member);
