@@ -67,9 +67,8 @@ public class Application {
 		allJavaFiles.forEach(System.out::println);
 
 		// Construct type dependency graph
+		MutableValueGraph<String, List<GenericMethod>> methodGraph = com.google.common.graph.ValueGraphBuilder.directed().allowsSelfLoops(true).build();
 
-
-		MutableValueGraph<String, List<GenericMethod>> methodGraph = com.google.common.graph.ValueGraphBuilder.directed().build();
 		HashMap<String, TypeDeclaration> typeToTypeDeclaration = new HashMap<>();
 
 		HashMap<String, CompilationUnit> classToCompilationMap = new HashMap<>();

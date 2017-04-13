@@ -75,7 +75,7 @@ public class InterfaceDefinitionConstraintSolver {
 		return graph
 				.nodes()
 				.stream()
-				.filter(s -> graph.successors(s).isEmpty())
+				.filter(s -> graph.successors(s).isEmpty() || graph.successors(s).size() == 1 && graph.successors(s).contains(s))
 				.collect(Collectors.toList());
 	}
 
