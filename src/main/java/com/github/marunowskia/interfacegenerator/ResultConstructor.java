@@ -45,6 +45,7 @@ public class ResultConstructor {
 
 
 		renameSingleMethodInterfaces(allSharedMethods);
+		reorganizePackages(allSharedMethods);
 		updateAllMethodSignatures(allSharedMethods);
 
 
